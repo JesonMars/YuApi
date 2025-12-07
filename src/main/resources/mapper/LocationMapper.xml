@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.LocationMapper">
+
+    <resultMap id="BaseResultMap" type="com.pingo.yuapi.entity.Location">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="address" property="address"/>
+        <result column="longitude" property="longitude"/>
+        <result column="latitude" property="latitude"/>
+        <result column="type" property="type"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM location WHERE status = 1 ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByType" resultMap="BaseResultMap">
+        SELECT * FROM location WHERE type = #{type} AND status = 1 ORDER BY sort_order, id
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM location WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.pingo.yuapi.entity.Location">
+        INSERT INTO location (name, address, longitude, latitude, type, sort_order, status, create_time, update_time)
+        VALUES (#{name}, #{address}, #{longitude}, #{latitude}, #{type}, #{sortOrder}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="updateById" parameterType="com.pingo.yuapi.entity.Location">
+        UPDATE location 
+        SET name = #{name},
+            address = #{address},
+            longitude = #{longitude},
+            latitude = #{latitude},
+            type = #{type},
+            sort_order = #{sortOrder},
+            status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM location WHERE id = #{id}
+    </delete>
+
+</mapper>

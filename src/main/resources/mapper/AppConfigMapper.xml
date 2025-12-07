@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.AppConfigMapper">
+
+    <resultMap id="BaseResultMap" type="com.pingo.yuapi.entity.AppConfig">
+        <id column="id" property="id"/>
+        <result column="config_key" property="configKey"/>
+        <result column="config_value" property="configValue"/>
+        <result column="config_type" property="configType"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM app_config ORDER BY config_type, id
+    </select>
+
+    <select id="selectByKey" resultMap="BaseResultMap">
+        SELECT * FROM app_config WHERE config_key = #{configKey}
+    </select>
+
+    <select id="selectByType" resultMap="BaseResultMap">
+        SELECT * FROM app_config WHERE config_type = #{configType} ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="com.pingo.yuapi.entity.AppConfig">
+        INSERT INTO app_config (config_key, config_value, config_type, description, create_time, update_time)
+        VALUES (#{configKey}, #{configValue}, #{configType}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="updateByKey" parameterType="com.pingo.yuapi.entity.AppConfig">
+        UPDATE app_config 
+        SET config_value = #{configValue}, 
+            config_type = #{configType},
+            description = #{description},
+            update_time = NOW()
+        WHERE config_key = #{configKey}
+    </update>
+
+    <delete id="deleteByKey">
+        DELETE FROM app_config WHERE config_key = #{configKey}
+    </delete>
+
+</mapper>
