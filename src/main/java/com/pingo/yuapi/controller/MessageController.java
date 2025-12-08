@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/messages")
+@RequestMapping("/messages")
 @CrossOrigin(origins = "*")
 public class MessageController {
 

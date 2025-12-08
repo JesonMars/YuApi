@@ -222,7 +222,7 @@ public class TripServiceImpl implements TripService {
         trip.setAvailableSeats(Integer.parseInt(tripData.get("availableSeats").toString()));
         trip.setPrice(new BigDecimal(tripData.get("price").toString()));
         trip.setVehicleInfo((String) tripData.get("vehicleInfo"));
-        trip.setNote((String) tripData.get("note"));
+        trip.setNotes((String) tripData.get("note"));
         trip.setType("car_seeking_people");
         trip.setStatus("available");
         trip.setCreateTime(LocalDateTime.now());
@@ -246,7 +246,7 @@ public class TripServiceImpl implements TripService {
         trip.setDepartureTime(LocalDateTime.parse((String) tripData.get("departureTime")));
         trip.setPassengerCount(Integer.parseInt(tripData.get("passengerCount").toString()));
         trip.setPrice(new BigDecimal(tripData.get("pricePerPerson").toString()));
-        trip.setNote((String) tripData.get("note"));
+        trip.setNotes((String) tripData.get("note"));
         trip.setType("people_seeking_car");
         trip.setStatus("available");
         trip.setCreateTime(LocalDateTime.now());
@@ -288,7 +288,7 @@ public class TripServiceImpl implements TripService {
         Trip trip = tripStorage.get(tripId);
         if (trip != null) {
             trip.setStatus("cancelled");
-            trip.setNote(trip.getNote() + " [取消原因: " + reason + "]");
+            trip.setNotes(trip.getNotes() + " [取消原因: " + reason + "]");
             trip.setUpdateTime(LocalDateTime.now());
             return true;
         }

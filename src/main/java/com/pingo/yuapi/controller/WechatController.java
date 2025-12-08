@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/wechat")
+@RequestMapping("/wechat")
 @CrossOrigin(origins = "*")
 public class WechatController {
 

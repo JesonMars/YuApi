@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
 @EnableFeignClients
-@MapperScan("com.pingo")
+@MapperScan("com.pingo.yuapi.mapper")
 public class YuApiApplication {
 
     public static void main(String[] args) {
