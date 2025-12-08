@@ -206,4 +206,129 @@ public class TripServiceImpl implements TripService {
         trip3.setCreateTime(baseTime.minusHours(2));
         tripStorage.put("trip_003", trip3);
     }
+
+    @Override
+    public String publishDriverTrip(Map<String, Object> tripData) {
+        Trip trip = new Trip();
+        String tripId = UUID.randomUUID().toString();
+        
+        trip.setId(tripId);
+        trip.setDriverId((String) tripData.get("driverId"));
+        trip.setDriverName((String) tripData.get("driverName"));
+        trip.setDriverAvatar((String) tripData.get("driverAvatar"));
+        trip.setStartLocation((String) tripData.get("startLocation"));
+        trip.setEndLocation((String) tripData.get("endLocation"));
+        trip.setDepartureTime(LocalDateTime.parse((String) tripData.get("departureTime")));
+        trip.setAvailableSeats(Integer.parseInt(tripData.get("availableSeats").toString()));
+        trip.setPrice(new BigDecimal(tripData.get("price").toString()));
+        trip.setVehicleInfo((String) tripData.get("vehicleInfo"));
+        trip.setNote((String) tripData.get("note"));
+        trip.setType("car_seeking_people");
+        trip.setStatus("available");
+        trip.setCreateTime(LocalDateTime.now());
+        trip.setUpdateTime(LocalDateTime.now());
+        
+        tripStorage.put(tripId, trip);
+        return tripId;
+    }
+
+    @Override
+    public String publishPassengerTrip(Map<String, Object> tripData) {
+        Trip trip = new Trip();
+        String tripId = UUID.randomUUID().toString();
+        
+        trip.setId(tripId);
+        trip.setDriverId((String) tripData.get("passengerId")); // 这里用passengerId
+        trip.setDriverName((String) tripData.get("passengerName"));
+        trip.setDriverAvatar((String) tripData.get("passengerAvatar"));
+        trip.setStartLocation((String) tripData.get("startLocation"));
+        trip.setEndLocation((String) tripData.get("endLocation"));
+        trip.setDepartureTime(LocalDateTime.parse((String) tripData.get("departureTime")));
+        trip.setPassengerCount(Integer.parseInt(tripData.get("passengerCount").toString()));
+        trip.setPrice(new BigDecimal(tripData.get("pricePerPerson").toString()));
+        trip.setNote((String) tripData.get("note"));
+        trip.setType("people_seeking_car");
+        trip.setStatus("available");
+        trip.setCreateTime(LocalDateTime.now());
+        trip.setUpdateTime(LocalDateTime.now());
+        
+        tripStorage.put(tripId, trip);
+        return tripId;
+    }
+
+    @Override
+    public List<Trip> getUserTrips(String userId, Integer page, Integer limit) {
+        return tripStorage.values().stream()
+            .filter(trip -> userId.equals(trip.getDriverId()))
+            .sorted((t1, t2) -> t2.getCreateTime().compareTo(t1.getCreateTime()))
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean joinTrip(String tripId, Map<String, Object> joinData) {
+        Trip trip = tripStorage.get(tripId);
+        if (trip != null && trip.getAvailableSeats() > 0) {
+            // 减少可用座位数
+            trip.setAvailableSeats(trip.getAvailableSeats() - 1);
+            trip.setUpdateTime(LocalDateTime.now());
+            
+            // 如果没有可用座位了，更新状态
+            if (trip.getAvailableSeats() == 0) {
+                trip.setStatus("full");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean cancelTrip(String tripId, String reason) {
+        Trip trip = tripStorage.get(tripId);
+        if (trip != null) {
+            trip.setStatus("cancelled");
+            trip.setNote(trip.getNote() + " [取消原因: " + reason + "]");
+            trip.setUpdateTime(LocalDateTime.now());
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean completeTrip(String tripId) {
+        Trip trip = tripStorage.get(tripId);
+        if (trip != null) {
+            trip.setStatus("completed");
+            trip.setUpdateTime(LocalDateTime.now());
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public List<Map<String, Object>> getTripParticipants(String tripId) {
+        List<Map<String, Object>> participants = new ArrayList<>();
+        
+        // 模拟参与者数据
+        Map<String, Object> participant1 = new HashMap<>();
+        participant1.put("id", "user_101");
+        participant1.put("name", "乘客1");
+        participant1.put("avatar", "/static/passenger1.png");
+        participant1.put("phone", "138****1234");
+        participant1.put("joinTime", LocalDateTime.now().minusMinutes(30).toString());
+        participant1.put("status", "confirmed");
+        participants.add(participant1);
+        
+        Map<String, Object> participant2 = new HashMap<>();
+        participant2.put("id", "user_102");
+        participant2.put("name", "乘客2");
+        participant2.put("avatar", "/static/passenger2.png");
+        participant2.put("phone", "139****5678");
+        participant2.put("joinTime", LocalDateTime.now().minusMinutes(15).toString());
+        participant2.put("status", "pending");
+        participants.add(participant2);
+        
+        return participants;
+    }
 }

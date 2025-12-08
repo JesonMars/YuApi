@@ -119,4 +119,98 @@ public class TripController {
             return Result.error("搜索附近行程失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 创建拼车行程（司机发布）
+     */
+    @PostMapping("/publish/driver")
+    public Result<String> publishDriverTrip(@RequestBody Map<String, Object> tripData) {
+        try {
+            String tripId = tripService.publishDriverTrip(tripData);
+            return Result.success(tripId);
+        } catch (Exception e) {
+            return Result.error("发布司机行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 创建搭车行程（乘客发布）
+     */
+    @PostMapping("/publish/passenger")
+    public Result<String> publishPassengerTrip(@RequestBody Map<String, Object> tripData) {
+        try {
+            String tripId = tripService.publishPassengerTrip(tripData);
+            return Result.success(tripId);
+        } catch (Exception e) {
+            return Result.error("发布搭车行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户发布的行程列表
+     */
+    @GetMapping("/user/{userId}")
+    public Result<List<Trip>> getUserTrips(@PathVariable String userId,
+                                          @RequestParam(defaultValue = "1") Integer page,
+                                          @RequestParam(defaultValue = "10") Integer limit) {
+        try {
+            List<Trip> trips = tripService.getUserTrips(userId, page, limit);
+            return Result.success(trips);
+        } catch (Exception e) {
+            return Result.error("获取用户行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 申请加入行程
+     */
+    @PostMapping("/{tripId}/join")
+    public Result<Boolean> joinTrip(@PathVariable String tripId, @RequestBody Map<String, Object> joinData) {
+        try {
+            boolean success = tripService.joinTrip(tripId, joinData);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("申请加入行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 取消行程
+     */
+    @PutMapping("/{tripId}/cancel")
+    public Result<Boolean> cancelTrip(@PathVariable String tripId, @RequestBody Map<String, String> cancelData) {
+        try {
+            String reason = cancelData.get("reason");
+            boolean success = tripService.cancelTrip(tripId, reason);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("取消行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 完成行程
+     */
+    @PutMapping("/{tripId}/complete")
+    public Result<Boolean> completeTrip(@PathVariable String tripId) {
+        try {
+            boolean success = tripService.completeTrip(tripId);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("完成行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取行程参与者列表
+     */
+    @GetMapping("/{tripId}/participants")
+    public Result<List<Map<String, Object>>> getTripParticipants(@PathVariable String tripId) {
+        try {
+            List<Map<String, Object>> participants = tripService.getTripParticipants(tripId);
+            return Result.success(participants);
+        } catch (Exception e) {
+            return Result.error("获取行程参与者失败: " + e.getMessage());
+        }
+    }
 }

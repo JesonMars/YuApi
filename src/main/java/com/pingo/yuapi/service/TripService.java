@@ -44,4 +44,39 @@ public interface TripService {
      * 搜索附近的行程
      */
     List<Trip> searchNearbyTrips(Map<String, Object> searchParams);
+    
+    /**
+     * 发布司机行程
+     */
+    String publishDriverTrip(Map<String, Object> tripData);
+    
+    /**
+     * 发布乘客行程
+     */
+    String publishPassengerTrip(Map<String, Object> tripData);
+    
+    /**
+     * 获取用户行程列表
+     */
+    List<Trip> getUserTrips(String userId, Integer page, Integer limit);
+    
+    /**
+     * 申请加入行程
+     */
+    boolean joinTrip(String tripId, Map<String, Object> joinData);
+    
+    /**
+     * 取消行程
+     */
+    boolean cancelTrip(String tripId, String reason);
+    
+    /**
+     * 完成行程
+     */
+    boolean completeTrip(String tripId);
+    
+    /**
+     * 获取行程参与者列表
+     */
+    List<Map<String, Object>> getTripParticipants(String tripId);
 }

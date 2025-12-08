@@ -35,3 +35,13 @@ logging:
     root: info
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 微信小程序配置
+wechat:
+  miniprogram:
+    appid: wx1234567890abcdef  # 替换为实际的小程序AppID
+    secret: your-secret-key     # 替换为实际的小程序Secret
+    mchId: 1234567890          # 微信支付商户号（可选）
+    apiKey: your-api-key       # 微信支付API密钥（可选）
+    notifyUrl: https://yourdomain.com/api/wechat/pay/notify  # 支付回调地址（可选）
+    keyPath: classpath:cert/apiclient_cert.p12  # 微信支付证书路径（可选）

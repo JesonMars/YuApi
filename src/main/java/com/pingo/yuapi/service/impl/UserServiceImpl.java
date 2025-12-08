@@ -177,6 +177,183 @@ public class UserServiceImpl implements UserService {
         return "/uploads/verification/" + filename;
     }
 
+    @Override
+    public boolean updateNickname(String userId, String nickname) {
+        User user = userStorage.get(userId);
+        if (user != null) {
+            user.setName(nickname);
+            user.setUpdateTime(LocalDateTime.now());
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Map<String, Object> getUserStats(String userId) {
+        Map<String, Object> stats = new HashMap<>();
+        User user = userStorage.get(userId);
+        
+        if (user != null) {
+            stats.put("trips", user.getHistoryOrders());
+            stats.put("savedMoney", 1580.5);
+            stats.put("carbon", 45.2);
+        } else {
+            stats.put("trips", 0);
+            stats.put("savedMoney", 0.0);
+            stats.put("carbon", 0.0);
+        }
+        
+        return stats;
+    }
+
+    @Override
+    public Map<String, Object> getUserSettings(String userId) {
+        Map<String, Object> settings = new HashMap<>();
+        settings.put("messageNotification", true);
+        settings.put("tripReminder", true);
+        settings.put("soundEnabled", true);
+        settings.put("vibrationEnabled", false);
+        settings.put("nightMode", false);
+        return settings;
+    }
+
+    @Override
+    public boolean updateUserSettings(String userId, Map<String, Object> settings) {
+        // 模拟更新用户设置
+        // 在实际应用中，这里会保存设置到数据库
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> getUserWallet(String userId) {
+        User user = getUserById(userId);
+        Map<String, Object> walletInfo = new HashMap<>();
+        
+        walletInfo.put("balance", user.getBalance());
+        walletInfo.put("frozenAmount", new BigDecimal("0.00"));
+        walletInfo.put("coupons", user.getCoupons());
+        walletInfo.put("points", 1250);
+        
+        return walletInfo;
+    }
+
+    @Override
+    public boolean rechargeWallet(String userId, Double amount, String paymentMethod) {
+        User user = userStorage.get(userId);
+        if (user != null) {
+            BigDecimal currentBalance = user.getBalance();
+            BigDecimal newBalance = currentBalance.add(new BigDecimal(amount.toString()));
+            user.setBalance(newBalance);
+            user.setUpdateTime(LocalDateTime.now());
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean withdrawWallet(String userId, Double amount, String bankAccount) {
+        User user = userStorage.get(userId);
+        if (user != null) {
+            BigDecimal currentBalance = user.getBalance();
+            BigDecimal withdrawAmount = new BigDecimal(amount.toString());
+            
+            if (currentBalance.compareTo(withdrawAmount) >= 0) {
+                BigDecimal newBalance = currentBalance.subtract(withdrawAmount);
+                user.setBalance(newBalance);
+                user.setUpdateTime(LocalDateTime.now());
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public List<Map<String, Object>> getWalletTransactions(String userId, Integer page, Integer limit) {
+        List<Map<String, Object>> transactions = new ArrayList<>();
+        
+        // 模拟交易记录
+        Map<String, Object> transaction1 = new HashMap<>();
+        transaction1.put("id", "txn_001");
+        transaction1.put("type", "recharge");
+        transaction1.put("amount", 100.00);
+        transaction1.put("description", "微信充值");
+        transaction1.put("createTime", LocalDateTime.now().minusDays(1).toString());
+        transaction1.put("status", "success");
+        transactions.add(transaction1);
+        
+        Map<String, Object> transaction2 = new HashMap<>();
+        transaction2.put("id", "txn_002");
+        transaction2.put("type", "consume");
+        transaction2.put("amount", -15.50);
+        transaction2.put("description", "行程支付");
+        transaction2.put("createTime", LocalDateTime.now().minusDays(2).toString());
+        transaction2.put("status", "success");
+        transactions.add(transaction2);
+        
+        return transactions;
+    }
+
+    @Override
+    public boolean checkPhoneExists(String phone) {
+        // 模拟检查手机号
+        return userStorage.values().stream()
+                .anyMatch(user -> phone.equals(user.getPhone()));
+    }
+
+    @Override
+    public boolean sendSmsCode(String phone, String type) {
+        // 模拟发送短信验证码
+        // 在实际应用中，这里会调用短信服务提供商的API
+        System.out.println("发送验证码到手机: " + phone + ", 类型: " + type);
+        return true;
+    }
+
+    @Override
+    public boolean verifySmsCode(String phone, String code) {
+        // 模拟验证短信验证码
+        // 在实际应用中，这里会验证存储在缓存中的验证码
+        return "123456".equals(code); // 简单模拟
+    }
+
+    @Override
+    public Map<String, Object> getVerificationStatus(String userId) {
+        User user = userStorage.get(userId);
+        Map<String, Object> status = new HashMap<>();
+        
+        if (user != null) {
+            status.put("verificationStatus", user.getVerificationStatus());
+            status.put("submittedAt", user.getUpdateTime());
+            status.put("reviewMessage", getReviewMessage(user.getVerificationStatus()));
+        } else {
+            status.put("verificationStatus", "none");
+            status.put("submittedAt", null);
+            status.put("reviewMessage", "");
+        }
+        
+        return status;
+    }
+
+    @Override
+    public boolean clearUserCache(String userId) {
+        // 模拟清除用户缓存
+        // 在实际应用中，这里会清除Redis或其他缓存中的用户数据
+        System.out.println("清除用户缓存: " + userId);
+        return true;
+    }
+    
+    private String getReviewMessage(String status) {
+        switch (status) {
+            case "pending":
+                return "认证材料审核中，请耐心等待";
+            case "verified":
+                return "认证通过，可以发布车主行程";
+            case "rejected":
+                return "认证未通过，请重新提交正确的认证材料";
+            default:
+                return "未提交认证";
+        }
+    }
+
     private void initSampleData() {
         // 初始化示例用户数据
         User sampleUser = new User();

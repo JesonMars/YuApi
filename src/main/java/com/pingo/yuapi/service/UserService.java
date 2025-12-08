@@ -72,4 +72,69 @@ public interface UserService {
      * 上传认证文件
      */
     String uploadVerificationFile(String userId, MultipartFile file, String fileType);
+    
+    /**
+     * 更新用户昵称
+     */
+    boolean updateNickname(String userId, String nickname);
+    
+    /**
+     * 获取用户统计信息
+     */
+    Map<String, Object> getUserStats(String userId);
+    
+    /**
+     * 获取用户设置
+     */
+    Map<String, Object> getUserSettings(String userId);
+    
+    /**
+     * 更新用户设置
+     */
+    boolean updateUserSettings(String userId, Map<String, Object> settings);
+    
+    /**
+     * 获取用户钱包信息
+     */
+    Map<String, Object> getUserWallet(String userId);
+    
+    /**
+     * 钱包充值
+     */
+    boolean rechargeWallet(String userId, Double amount, String paymentMethod);
+    
+    /**
+     * 钱包提现
+     */
+    boolean withdrawWallet(String userId, Double amount, String bankAccount);
+    
+    /**
+     * 获取钱包交易记录
+     */
+    List<Map<String, Object>> getWalletTransactions(String userId, Integer page, Integer limit);
+    
+    /**
+     * 检查手机号是否存在
+     */
+    boolean checkPhoneExists(String phone);
+    
+    /**
+     * 发送短信验证码
+     */
+    boolean sendSmsCode(String phone, String type);
+    
+    /**
+     * 验证短信验证码
+     */
+    boolean verifySmsCode(String phone, String code);
+    
+    /**
+     * 获取用户认证状态
+     */
+    Map<String, Object> getVerificationStatus(String userId);
+    
+    /**
+     * 清除用户缓存
+     */
+    boolean clearUserCache(String userId);
 }

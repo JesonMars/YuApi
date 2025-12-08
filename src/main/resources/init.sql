@@ -88,3 +88,169 @@ INSERT INTO location (name, address, longitude, latitude, type, sort_order, stat
 ('保利', '保利国际广场', 116.4074, 39.9142, 'hot', 4, 1),
 ('金辉', '金汇大厦', 116.4174, 39.9242, 'hot', 5, 1),
 ('启明', '启明国际大厦', 116.4274, 39.9342, 'hot', 6, 1);
+
+-- 用户表
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    avatar VARCHAR(500),
+    community VARCHAR(200),
+    vehicle_brand VARCHAR(50),
+    vehicle_color VARCHAR(30),
+    plate_number VARCHAR(20),
+    balance DECIMAL(10,2) DEFAULT 0.00,
+    coupons INT DEFAULT 0,
+    history_orders INT DEFAULT 0,
+    verification_status ENUM('none', 'pending', 'verified', 'rejected') DEFAULT 'none',
+    real_name VARCHAR(50),
+    id_card VARCHAR(30),
+    driver_license_photo VARCHAR(500),
+    vehicle_license_photo VARCHAR(500),
+    wechat_openid VARCHAR(100),
+    wechat_unionid VARCHAR(100),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_phone (phone),
+    INDEX idx_wechat_openid (wechat_openid),
+    INDEX idx_wechat_unionid (wechat_unionid)
+) COMMENT '用户表';
+
+-- 微信用户表
+CREATE TABLE IF NOT EXISTS wechat_users (
+    id VARCHAR(50) PRIMARY KEY,
+    openid VARCHAR(100) UNIQUE NOT NULL,
+    unionid VARCHAR(100),
+    session_key VARCHAR(100),
+    nick_name VARCHAR(100),
+    avatar_url VARCHAR(500),
+    gender TINYINT,
+    city VARCHAR(50),
+    province VARCHAR(50),
+    country VARCHAR(50),
+    language VARCHAR(10),
+    phone_number VARCHAR(20),
+    pure_phone_number VARCHAR(20),
+    country_code VARCHAR(10),
+    internal_user_id VARCHAR(50),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_login_time TIMESTAMP,
+    INDEX idx_openid (openid),
+    INDEX idx_unionid (unionid),
+    INDEX idx_internal_user_id (internal_user_id),
+    FOREIGN KEY (internal_user_id) REFERENCES users(id) ON DELETE SET NULL
+) COMMENT '微信用户表';
+
+-- 行程表
+CREATE TABLE IF NOT EXISTS trips (
+    id VARCHAR(50) PRIMARY KEY,
+    driver_id VARCHAR(50) NOT NULL,
+    driver_name VARCHAR(100),
+    driver_avatar VARCHAR(500),
+    start_location VARCHAR(200) NOT NULL,
+    end_location VARCHAR(200) NOT NULL,
+    departure_time TIMESTAMP NOT NULL,
+    available_seats INT,
+    passenger_count INT,
+    price DECIMAL(8,2),
+    vehicle_info VARCHAR(200),
+    note TEXT,
+    type ENUM('car_seeking_people', 'people_seeking_car') NOT NULL,
+    status ENUM('available', 'full', 'cancelled', 'completed') DEFAULT 'available',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_driver_id (driver_id),
+    INDEX idx_departure_time (departure_time),
+    INDEX idx_status (status),
+    INDEX idx_type (type)
+) COMMENT '行程表';
+
+-- 用户关注表
+CREATE TABLE IF NOT EXISTS user_follows (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    target_user_id VARCHAR(50) NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_follow (user_id, target_user_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_target_user_id (target_user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '用户关注表';
+
+-- 黑名单表
+CREATE TABLE IF NOT EXISTS user_blacklist (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    target_user_id VARCHAR(50) NOT NULL,
+    reason VARCHAR(500),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_blacklist (user_id, target_user_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_target_user_id (target_user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '黑名单表';
+
+-- 用户位置表
+CREATE TABLE IF NOT EXISTS user_locations (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    address VARCHAR(300) NOT NULL,
+    longitude DECIMAL(10,7),
+    latitude DECIMAL(10,7),
+    type ENUM('home', 'company', 'other') DEFAULT 'other',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_location (longitude, latitude),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '用户位置表';
+
+-- 钱包交易记录表
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    type ENUM('recharge', 'withdraw', 'consume', 'refund', 'reward') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    description VARCHAR(500),
+    payment_method VARCHAR(50),
+    status ENUM('pending', 'success', 'failed') DEFAULT 'success',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_type (type),
+    INDEX idx_create_time (create_time),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '钱包交易记录表';
+
+-- 用户设置表
+CREATE TABLE IF NOT EXISTS user_settings (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL UNIQUE,
+    message_notification BOOLEAN DEFAULT TRUE,
+    trip_reminder BOOLEAN DEFAULT TRUE,
+    sound_enabled BOOLEAN DEFAULT TRUE,
+    vibration_enabled BOOLEAN DEFAULT FALSE,
+    night_mode BOOLEAN DEFAULT FALSE,
+    language VARCHAR(10) DEFAULT 'zh_CN',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '用户设置表';
+
+-- 行程参与者表
+CREATE TABLE IF NOT EXISTS trip_participants (
+    id VARCHAR(50) PRIMARY KEY,
+    trip_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    status ENUM('pending', 'confirmed', 'rejected', 'cancelled') DEFAULT 'pending',
+    join_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_participant (trip_id, user_id),
+    INDEX idx_trip_id (trip_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT '行程参与者表';

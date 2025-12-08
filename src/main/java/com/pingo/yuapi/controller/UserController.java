@@ -210,6 +210,209 @@ public class UserController {
     }
 
     /**
+     * 更新用户昵称
+     */
+    @PutMapping("/nickname")
+    public Result<Boolean> updateNickname(@RequestBody Map<String, String> request) {
+        try {
+            String userId = getCurrentUserId();
+            String nickname = request.get("nickname");
+            if (nickname == null || nickname.trim().isEmpty()) {
+                return Result.error("昵称不能为空");
+            }
+            boolean success = userService.updateNickname(userId, nickname.trim());
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("更新昵称失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户统计信息
+     */
+    @GetMapping("/stats")
+    public Result<Map<String, Object>> getUserStats() {
+        try {
+            String userId = getCurrentUserId();
+            Map<String, Object> stats = userService.getUserStats(userId);
+            return Result.success(stats);
+        } catch (Exception e) {
+            return Result.error("获取用户统计失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户设置
+     */
+    @GetMapping("/settings")
+    public Result<Map<String, Object>> getUserSettings() {
+        try {
+            String userId = getCurrentUserId();
+            Map<String, Object> settings = userService.getUserSettings(userId);
+            return Result.success(settings);
+        } catch (Exception e) {
+            return Result.error("获取用户设置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新用户设置
+     */
+    @PutMapping("/settings")
+    public Result<Boolean> updateUserSettings(@RequestBody Map<String, Object> settings) {
+        try {
+            String userId = getCurrentUserId();
+            boolean success = userService.updateUserSettings(userId, settings);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("更新用户设置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户钱包信息
+     */
+    @GetMapping("/wallet")
+    public Result<Map<String, Object>> getUserWallet() {
+        try {
+            String userId = getCurrentUserId();
+            Map<String, Object> walletInfo = userService.getUserWallet(userId);
+            return Result.success(walletInfo);
+        } catch (Exception e) {
+            return Result.error("获取钱包信息失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 钱包充值
+     */
+    @PostMapping("/wallet/recharge")
+    public Result<Boolean> rechargeWallet(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = getCurrentUserId();
+            Double amount = Double.valueOf(request.get("amount").toString());
+            String paymentMethod = (String) request.get("paymentMethod");
+            
+            if (amount <= 0) {
+                return Result.error("充值金额必须大于0");
+            }
+            
+            boolean success = userService.rechargeWallet(userId, amount, paymentMethod);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("钱包充值失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 钱包提现
+     */
+    @PostMapping("/wallet/withdraw")
+    public Result<Boolean> withdrawWallet(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = getCurrentUserId();
+            Double amount = Double.valueOf(request.get("amount").toString());
+            String bankAccount = (String) request.get("bankAccount");
+            
+            if (amount <= 0) {
+                return Result.error("提现金额必须大于0");
+            }
+            
+            boolean success = userService.withdrawWallet(userId, amount, bankAccount);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("钱包提现失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取钱包交易记录
+     */
+    @GetMapping("/wallet/transactions")
+    public Result<List<Map<String, Object>>> getWalletTransactions(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer limit) {
+        try {
+            String userId = getCurrentUserId();
+            List<Map<String, Object>> transactions = userService.getWalletTransactions(userId, page, limit);
+            return Result.success(transactions);
+        } catch (Exception e) {
+            return Result.error("获取交易记录失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查手机号是否已存在
+     */
+    @GetMapping("/check-phone/{phone}")
+    public Result<Boolean> checkPhoneExists(@PathVariable String phone) {
+        try {
+            boolean exists = userService.checkPhoneExists(phone);
+            return Result.success(exists);
+        } catch (Exception e) {
+            return Result.error("检查手机号失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 发送验证码
+     */
+    @PostMapping("/send-sms")
+    public Result<Boolean> sendSmsCode(@RequestBody Map<String, String> request) {
+        try {
+            String phone = request.get("phone");
+            String type = request.get("type"); // register, login, reset_password
+            boolean success = userService.sendSmsCode(phone, type);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("发送验证码失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 验证验证码
+     */
+    @PostMapping("/verify-sms")
+    public Result<Boolean> verifySmsCode(@RequestBody Map<String, String> request) {
+        try {
+            String phone = request.get("phone");
+            String code = request.get("code");
+            boolean success = userService.verifySmsCode(phone, code);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("验证失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户认证状态
+     */
+    @GetMapping("/verification-status")
+    public Result<Map<String, Object>> getVerificationStatus() {
+        try {
+            String userId = getCurrentUserId();
+            Map<String, Object> status = userService.getVerificationStatus(userId);
+            return Result.success(status);
+        } catch (Exception e) {
+            return Result.error("获取认证状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 清除用户缓存
+     */
+    @DeleteMapping("/cache")
+    public Result<Boolean> clearUserCache() {
+        try {
+            String userId = getCurrentUserId();
+            boolean success = userService.clearUserCache(userId);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("清除缓存失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 获取当前用户ID（实际项目中应该从JWT token或session中获取）
      */
     private String getCurrentUserId() {
