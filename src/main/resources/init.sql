@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS users (
     vehicle_license_photo VARCHAR(500),
     wechat_openid VARCHAR(100),
     wechat_unionid VARCHAR(100),
+    first_setup_completed TINYINT DEFAULT 0 COMMENT '是否完成首次设置：0-未完成，1-已完成',
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_phone (phone),

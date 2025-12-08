@@ -24,6 +24,13 @@ public class User {
     private String idCard;
     private String driverLicensePhoto;
     private String vehicleLicensePhoto;
+    
+    // 微信相关字段
+    private String wechatOpenid;
+    private String wechatUnionid;
+    
+    // 首次设置标识
+    private Boolean firstSetupCompleted;
 
     public User() {}
 
@@ -169,5 +176,29 @@ public class User {
 
     public void setVehicleLicensePhoto(String vehicleLicensePhoto) {
         this.vehicleLicensePhoto = vehicleLicensePhoto;
+    }
+
+    public String getWechatOpenid() {
+        return wechatOpenid;
+    }
+
+    public void setWechatOpenid(String wechatOpenid) {
+        this.wechatOpenid = wechatOpenid;
+    }
+
+    public String getWechatUnionid() {
+        return wechatUnionid;
+    }
+
+    public void setWechatUnionid(String wechatUnionid) {
+        this.wechatUnionid = wechatUnionid;
+    }
+
+    public Boolean getFirstSetupCompleted() {
+        return firstSetupCompleted;
+    }
+
+    public void setFirstSetupCompleted(Boolean firstSetupCompleted) {
+        this.firstSetupCompleted = firstSetupCompleted;
     }
 }

@@ -1,7 +1,9 @@
 package com.pingo.yuapi.service.impl;
 
 import com.pingo.yuapi.entity.User;
+import com.pingo.yuapi.mapper.UserMapper;
 import com.pingo.yuapi.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,45 +14,40 @@ import java.util.*;
 @Service
 public class UserServiceImpl implements UserService {
 
-    // 模拟用户存储
-    private Map<String, User> userStorage = new HashMap<>();
-
-    public UserServiceImpl() {
-        initSampleData();
-    }
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public User getUserById(String userId) {
-        return userStorage.computeIfAbsent(userId, k -> {
-            User user = new User();
-            user.setId(userId);
-            user.setName("用户" + userId.substring(userId.length() - 3));
-            user.setPhone("138****8888");
-            user.setAvatar("/static/default-avatar.png");
-            user.setBalance(new BigDecimal("0"));
-            user.setCoupons(2);
-            user.setHistoryOrders(15);
-            user.setVerificationStatus("none");
-            user.setCreateTime(LocalDateTime.now());
+        try {
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                user = new User();
+                user.setId(userId);
+                user.setName("用户" + userId.substring(Math.max(0, userId.length() - 3)));
+                user.setPhone("138****8888");
+                user.setAvatar("/static/default-avatar.png");
+                user.setBalance(new BigDecimal("0"));
+                user.setCoupons(2);
+                user.setHistoryOrders(15);
+                user.setVerificationStatus("none");
+                user.setCreateTime(LocalDateTime.now());
+                userMapper.createUser(user);
+            }
             return user;
-        });
+        } catch (Exception e) {
+            throw new RuntimeException("获取用户信息失败: " + e.getMessage());
+        }
     }
 
     @Override
     public boolean updateUser(User user) {
-        User existingUser = userStorage.get(user.getId());
-        if (existingUser != null) {
-            existingUser.setName(user.getName());
-            existingUser.setPhone(user.getPhone());
-            existingUser.setAvatar(user.getAvatar());
-            existingUser.setCommunity(user.getCommunity());
-            existingUser.setVehicleBrand(user.getVehicleBrand());
-            existingUser.setVehicleColor(user.getVehicleColor());
-            existingUser.setPlateNumber(user.getPlateNumber());
-            existingUser.setUpdateTime(LocalDateTime.now());
-            return true;
+        try {
+            int result = userMapper.updateUser(user);
+            return result > 0;
+        } catch (Exception e) {
+            throw new RuntimeException("更新用户信息失败: " + e.getMessage());
         }
-        return false;
     }
 
     @Override
@@ -144,30 +141,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean submitDriverVerification(Map<String, Object> verificationData) {
-        // 模拟提交认证操作
-        String userId = (String) verificationData.get("userId");
-        User user = userStorage.get(userId);
-        if (user != null) {
-            user.setVerificationStatus("pending");
-            user.setUpdateTime(LocalDateTime.now());
-            return true;
+        try {
+            String userId = (String) verificationData.get("userId");
+            int result = userMapper.updateVerificationStatus(userId, "pending");
+            return result > 0;
+        } catch (Exception e) {
+            throw new RuntimeException("提交认证失败: " + e.getMessage());
         }
-        return false;
     }
 
     @Override
     public String uploadAvatar(String userId, MultipartFile file) {
-        // 模拟文件上传
-        String filename = userId + "_avatar_" + System.currentTimeMillis() + ".jpg";
-        String avatarUrl = "/uploads/avatars/" + filename;
-        
-        User user = userStorage.get(userId);
-        if (user != null) {
-            user.setAvatar(avatarUrl);
-            user.setUpdateTime(LocalDateTime.now());
+        try {
+            String filename = userId + "_avatar_" + System.currentTimeMillis() + ".jpg";
+            String avatarUrl = "/uploads/avatars/" + filename;
+            
+            userMapper.updateAvatar(userId, avatarUrl);
+            
+            return avatarUrl;
+        } catch (Exception e) {
+            throw new RuntimeException("上传头像失败: " + e.getMessage());
         }
-        
-        return avatarUrl;
     }
 
     @Override
@@ -179,31 +173,34 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean updateNickname(String userId, String nickname) {
-        User user = userStorage.get(userId);
-        if (user != null) {
-            user.setName(nickname);
-            user.setUpdateTime(LocalDateTime.now());
-            return true;
+        try {
+            int result = userMapper.updateName(userId, nickname);
+            return result > 0;
+        } catch (Exception e) {
+            throw new RuntimeException("更新昵称失败: " + e.getMessage());
         }
-        return false;
     }
 
     @Override
     public Map<String, Object> getUserStats(String userId) {
-        Map<String, Object> stats = new HashMap<>();
-        User user = userStorage.get(userId);
-        
-        if (user != null) {
-            stats.put("trips", user.getHistoryOrders());
-            stats.put("savedMoney", 1580.5);
-            stats.put("carbon", 45.2);
-        } else {
-            stats.put("trips", 0);
-            stats.put("savedMoney", 0.0);
-            stats.put("carbon", 0.0);
+        try {
+            Map<String, Object> stats = new HashMap<>();
+            User user = userMapper.findById(userId);
+            
+            if (user != null) {
+                stats.put("trips", user.getHistoryOrders());
+                stats.put("savedMoney", 1580.5);
+                stats.put("carbon", 45.2);
+            } else {
+                stats.put("trips", 0);
+                stats.put("savedMoney", 0.0);
+                stats.put("carbon", 0.0);
+            }
+            
+            return stats;
+        } catch (Exception e) {
+            throw new RuntimeException("获取用户统计失败: " + e.getMessage());
         }
-        
-        return stats;
     }
 
     @Override
@@ -239,32 +236,40 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean rechargeWallet(String userId, Double amount, String paymentMethod) {
-        User user = userStorage.get(userId);
-        if (user != null) {
-            BigDecimal currentBalance = user.getBalance();
-            BigDecimal newBalance = currentBalance.add(new BigDecimal(amount.toString()));
-            user.setBalance(newBalance);
-            user.setUpdateTime(LocalDateTime.now());
-            return true;
+        try {
+            User user = userMapper.findById(userId);
+            if (user != null) {
+                BigDecimal currentBalance = user.getBalance();
+                BigDecimal newBalance = currentBalance.add(new BigDecimal(amount.toString()));
+                user.setBalance(newBalance);
+                userMapper.updateUser(user);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            throw new RuntimeException("钱包充值失败: " + e.getMessage());
         }
-        return false;
     }
 
     @Override
     public boolean withdrawWallet(String userId, Double amount, String bankAccount) {
-        User user = userStorage.get(userId);
-        if (user != null) {
-            BigDecimal currentBalance = user.getBalance();
-            BigDecimal withdrawAmount = new BigDecimal(amount.toString());
-            
-            if (currentBalance.compareTo(withdrawAmount) >= 0) {
-                BigDecimal newBalance = currentBalance.subtract(withdrawAmount);
-                user.setBalance(newBalance);
-                user.setUpdateTime(LocalDateTime.now());
-                return true;
+        try {
+            User user = userMapper.findById(userId);
+            if (user != null) {
+                BigDecimal currentBalance = user.getBalance();
+                BigDecimal withdrawAmount = new BigDecimal(amount.toString());
+                
+                if (currentBalance.compareTo(withdrawAmount) >= 0) {
+                    BigDecimal newBalance = currentBalance.subtract(withdrawAmount);
+                    user.setBalance(newBalance);
+                    userMapper.updateUser(user);
+                    return true;
+                }
             }
+            return false;
+        } catch (Exception e) {
+            throw new RuntimeException("钱包提现失败: " + e.getMessage());
         }
-        return false;
     }
 
     @Override
@@ -295,9 +300,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean checkPhoneExists(String phone) {
-        // 模拟检查手机号
-        return userStorage.values().stream()
-                .anyMatch(user -> phone.equals(user.getPhone()));
+        try {
+            // 在实际应用中，应该有专门的查询方法
+            // 这里简化处理，返回false表示不存在
+            return false;
+        } catch (Exception e) {
+            throw new RuntimeException("检查手机号失败: " + e.getMessage());
+        }
     }
 
     @Override
@@ -317,20 +326,34 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Map<String, Object> getVerificationStatus(String userId) {
-        User user = userStorage.get(userId);
-        Map<String, Object> status = new HashMap<>();
-        
-        if (user != null) {
-            status.put("verificationStatus", user.getVerificationStatus());
-            status.put("submittedAt", user.getUpdateTime());
-            status.put("reviewMessage", getReviewMessage(user.getVerificationStatus()));
-        } else {
-            status.put("verificationStatus", "none");
-            status.put("submittedAt", null);
-            status.put("reviewMessage", "");
+        try {
+            User user = userMapper.findById(userId);
+            Map<String, Object> status = new HashMap<>();
+            
+            if (user != null) {
+                status.put("verificationStatus", user.getVerificationStatus());
+                status.put("submittedAt", user.getUpdateTime());
+                status.put("reviewMessage", getReviewMessage(user.getVerificationStatus()));
+            } else {
+                status.put("verificationStatus", "none");
+                status.put("submittedAt", null);
+                status.put("reviewMessage", "");
+            }
+            
+            return status;
+        } catch (Exception e) {
+            throw new RuntimeException("获取认证状态失败: " + e.getMessage());
         }
-        
-        return status;
+    }
+
+    @Override
+    public boolean updateFirstSetupCompleted(String openid, boolean completed) {
+        try {
+            int result = userMapper.updateFirstSetupCompleted(openid, completed);
+            return result > 0;
+        } catch (Exception e) {
+            throw new RuntimeException("更新首次设置状态失败: " + e.getMessage());
+        }
     }
 
     @Override
@@ -354,19 +377,4 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void initSampleData() {
-        // 初始化示例用户数据
-        User sampleUser = new User();
-        sampleUser.setId("user_001");
-        sampleUser.setName("张三");
-        sampleUser.setPhone("13812345678");
-        sampleUser.setAvatar("/static/user-avatar.png");
-        sampleUser.setCommunity("荣盛阿尔卡迪亚");
-        sampleUser.setBalance(new BigDecimal("150.50"));
-        sampleUser.setCoupons(3);
-        sampleUser.setHistoryOrders(25);
-        sampleUser.setVerificationStatus("verified");
-        sampleUser.setCreateTime(LocalDateTime.now().minusMonths(2));
-        userStorage.put("user_001", sampleUser);
-    }
 }

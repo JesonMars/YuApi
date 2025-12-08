@@ -399,6 +399,26 @@ public class UserController {
     }
 
     /**
+     * 更新首次设置完成状态
+     */
+    @PutMapping("/setup/complete")
+    public Result<Boolean> updateFirstSetupCompleted(@RequestBody Map<String, Object> request) {
+        try {
+            String openid = (String) request.get("openid");
+            Boolean completed = (Boolean) request.get("completed");
+            
+            if (openid == null || completed == null) {
+                return Result.error("参数不完整");
+            }
+            
+            boolean success = userService.updateFirstSetupCompleted(openid, completed);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("更新设置状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 清除用户缓存
      */
     @DeleteMapping("/cache")

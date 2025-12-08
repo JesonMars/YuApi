@@ -134,6 +134,11 @@ public interface UserService {
     Map<String, Object> getVerificationStatus(String userId);
     
     /**
+     * 更新首次设置完成状态
+     */
+    boolean updateFirstSetupCompleted(String openid, boolean completed);
+    
+    /**
      * 清除用户缓存
      */
     boolean clearUserCache(String userId);

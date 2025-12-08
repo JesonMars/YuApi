@@ -1,6 +1,9 @@
 package com.pingo.yuapi.service.impl;
 
 import com.pingo.yuapi.entity.User;
+import com.pingo.yuapi.entity.WechatUser;
+import com.pingo.yuapi.mapper.UserMapper;
+import com.pingo.yuapi.mapper.WechatUserMapper;
 import com.pingo.yuapi.service.UserService;
 import com.pingo.yuapi.service.WechatService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,12 @@ import org.apache.commons.codec.binary.Base64;
 @Service
 public class WechatServiceImpl implements WechatService {
 
+    @Autowired
+    private UserMapper userMapper;
+    
+    @Autowired
+    private WechatUserMapper wechatUserMapper;
+    
     @Autowired
     private UserService userService;
 
@@ -63,16 +72,23 @@ public class WechatServiceImpl implements WechatService {
             String sessionKey = (String) wechatResponse.get("session_key");
             String unionid = (String) wechatResponse.get("unionid");
             
-            // 保存session信息
-            Map<String, Object> sessionInfo = new HashMap<>();
-            sessionInfo.put("openid", openid);
-            sessionInfo.put("sessionKey", sessionKey);
-            sessionInfo.put("unionid", unionid);
-            sessionInfo.put("createTime", LocalDateTime.now());
-            sessionStorage.put(openid, sessionInfo);
+            // 检查或更新微信用户记录
+            WechatUser existingWechatUser = wechatUserMapper.findByOpenid(openid);
+            if (existingWechatUser == null) {
+                // 创建新的微信用户记录
+                WechatUser wechatUser = new WechatUser();
+                wechatUser.setId(UUID.randomUUID().toString());
+                wechatUser.setOpenid(openid);
+                wechatUser.setUnionid(unionid);
+                wechatUser.setSessionKey(sessionKey);
+                wechatUserMapper.createWechatUser(wechatUser);
+            } else {
+                // 更新session_key
+                wechatUserMapper.updateSessionKey(openid, sessionKey);
+            }
             
             // 检查用户是否已存在
-            Map<String, Object> existingUser = getUserByOpenid(openid);
+            User existingUser = userMapper.findByWechatOpenid(openid);
             boolean isNewUser = (existingUser == null);
             
             result.put("openid", openid);
@@ -116,21 +132,40 @@ public class WechatServiceImpl implements WechatService {
     @Override
     public Map<String, Object> saveUserInfo(String openid, Map<String, Object> userInfo) {
         try {
-            // 创建或更新用户信息
-            User user = createOrUpdateUser(openid, userInfo, null);
+            // 更新微信用户信息
+            WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
+            if (wechatUser != null) {
+                wechatUser.setNickName((String) userInfo.get("nickName"));
+                wechatUser.setAvatarUrl((String) userInfo.get("avatarUrl"));
+                wechatUser.setGender((Integer) userInfo.get("gender"));
+                wechatUser.setCity((String) userInfo.get("city"));
+                wechatUser.setProvince((String) userInfo.get("province"));
+                wechatUser.setCountry((String) userInfo.get("country"));
+                wechatUser.setLanguage((String) userInfo.get("language"));
+                wechatUserMapper.updateUserInfo(wechatUser);
+            }
             
-            // 保存微信用户信息
-            Map<String, Object> wechatUserInfo = new HashMap<>();
-            wechatUserInfo.put("openid", openid);
-            wechatUserInfo.put("nickName", userInfo.get("nickName"));
-            wechatUserInfo.put("avatarUrl", userInfo.get("avatarUrl"));
-            wechatUserInfo.put("gender", userInfo.get("gender"));
-            wechatUserInfo.put("city", userInfo.get("city"));
-            wechatUserInfo.put("province", userInfo.get("province"));
-            wechatUserInfo.put("country", userInfo.get("country"));
-            wechatUserInfo.put("language", userInfo.get("language"));
-            wechatUserInfo.put("updateTime", LocalDateTime.now());
-            wechatUserStorage.put(openid, wechatUserInfo);
+            // 创建或更新用户信息
+            User user = userMapper.findByWechatOpenid(openid);
+            if (user == null) {
+                // 创建新用户
+                user = new User();
+                user.setId(UUID.randomUUID().toString());
+                user.setName((String) userInfo.get("nickName"));
+                user.setAvatar((String) userInfo.get("avatarUrl"));
+                user.setWechatOpenid(openid);
+                user.setFirstSetupCompleted(false);
+                user.setBalance(new BigDecimal("0.00"));
+                user.setCoupons(0);
+                user.setHistoryOrders(0);
+                user.setVerificationStatus("none");
+                userMapper.createUser(user);
+            } else {
+                // 更新现有用户
+                user.setName((String) userInfo.get("nickName"));
+                user.setAvatar((String) userInfo.get("avatarUrl"));
+                userMapper.updateUser(user);
+            }
             
             Map<String, Object> result = new HashMap<>();
             result.put("userId", user.getId());
@@ -179,16 +214,22 @@ public class WechatServiceImpl implements WechatService {
 
     @Override
     public Map<String, Object> getUserByOpenid(String openid) {
-        Map<String, Object> wechatUserInfo = wechatUserStorage.get(openid);
-        if (wechatUserInfo != null) {
-            String internalUserId = getInternalUserIdByOpenid(openid);
-            User user = userService.getUserById(internalUserId);
-            
-            if (user != null) {
-                Map<String, Object> result = convertUserToMap(user);
-                result.put("wechatInfo", wechatUserInfo);
-                return result;
+        User user = userMapper.findByWechatOpenid(openid);
+        if (user != null) {
+            WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
+            Map<String, Object> result = convertUserToMap(user);
+            if (wechatUser != null) {
+                Map<String, Object> wechatInfo = new HashMap<>();
+                wechatInfo.put("nickName", wechatUser.getNickName());
+                wechatInfo.put("avatarUrl", wechatUser.getAvatarUrl());
+                wechatInfo.put("gender", wechatUser.getGender());
+                wechatInfo.put("city", wechatUser.getCity());
+                wechatInfo.put("province", wechatUser.getProvince());
+                wechatInfo.put("country", wechatUser.getCountry());
+                wechatInfo.put("phoneNumber", wechatUser.getPhoneNumber());
+                result.put("wechatInfo", wechatInfo);
             }
+            return result;
         }
         return null;
     }
@@ -196,16 +237,23 @@ public class WechatServiceImpl implements WechatService {
     @Override
     public Map<String, Object> getAuthStatus(String openid) {
         Map<String, Object> status = new HashMap<>();
-        Map<String, Object> wechatUserInfo = wechatUserStorage.get(openid);
+        WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
+        User user = userMapper.findByWechatOpenid(openid);
         
-        if (wechatUserInfo != null) {
-            status.put("hasUserInfo", true);
-            status.put("hasPhone", wechatUserInfo.get("phoneNumber") != null);
-            status.put("nickName", wechatUserInfo.get("nickName"));
-            status.put("avatarUrl", wechatUserInfo.get("avatarUrl"));
+        if (wechatUser != null) {
+            status.put("hasUserInfo", wechatUser.getNickName() != null);
+            status.put("hasPhone", wechatUser.getPhoneNumber() != null);
+            status.put("nickName", wechatUser.getNickName());
+            status.put("avatarUrl", wechatUser.getAvatarUrl());
         } else {
             status.put("hasUserInfo", false);
             status.put("hasPhone", false);
+        }
+        
+        if (user != null) {
+            status.put("firstSetupCompleted", user.getFirstSetupCompleted());
+        } else {
+            status.put("firstSetupCompleted", false);
         }
         
         status.put("openid", openid);
