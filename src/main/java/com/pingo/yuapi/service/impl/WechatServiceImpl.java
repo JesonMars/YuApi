@@ -44,11 +44,6 @@ public class WechatServiceImpl implements WechatService {
     @Value("${wechat.miniprogram.secret:your-secret-key}")
     private String appSecret;
 
-    // 模拟存储session信息
-    private Map<String, Map<String, Object>> sessionStorage = new HashMap<>();
-    
-    // 模拟存储用户微信信息
-    private Map<String, Map<String, Object>> wechatUserStorage = new HashMap<>();
 
     @Override
     public Map<String, Object> wechatLogin(String code) {
@@ -61,10 +56,10 @@ public class WechatServiceImpl implements WechatService {
                 appId, appSecret, code
             );
             
-            // 这里模拟微信API返回结果（实际项目中需要真实调用）
-            Map<String, Object> wechatResponse = simulateWechatLoginResponse(code);
+            // 调用微信官方API获取session_key和openid
+            Map<String, Object> wechatResponse = callWechatAPI(url, "GET", null);
             
-            if (wechatResponse.get("errcode") != null) {
+            if (wechatResponse.get("errcode") != null && !Integer.valueOf(0).equals(wechatResponse.get("errcode"))) {
                 throw new RuntimeException("微信登录失败: " + wechatResponse.get("errmsg"));
             }
             
@@ -111,7 +106,7 @@ public class WechatServiceImpl implements WechatService {
     public Map<String, Object> decryptUserInfo(String encryptedData, String iv, String sessionKey) {
         try {
             // AES解密（这里简化实现，实际项目中需要完整的AES解密）
-            Map<String, Object> userInfo = simulateDecryptUserInfo(encryptedData);
+            Map<String, Object> userInfo = decryptWechatUserInfo(encryptedData, iv, sessionKey);
             return userInfo;
         } catch (Exception e) {
             throw new RuntimeException("解密用户信息失败: " + e.getMessage());
@@ -122,7 +117,7 @@ public class WechatServiceImpl implements WechatService {
     public Map<String, Object> decryptPhoneNumber(String encryptedData, String iv, String sessionKey) {
         try {
             // AES解密手机号（这里简化实现）
-            Map<String, Object> phoneInfo = simulateDecryptPhoneNumber(encryptedData);
+            Map<String, Object> phoneInfo = decryptWechatPhoneNumber(encryptedData, iv, sessionKey);
             return phoneInfo;
         } catch (Exception e) {
             throw new RuntimeException("解密手机号失败: " + e.getMessage());
@@ -186,20 +181,17 @@ public class WechatServiceImpl implements WechatService {
             String countryCode = (String) phoneInfo.get("countryCode");
             
             // 更新用户手机号
-            Map<String, Object> existingUserInfo = wechatUserStorage.get(openid);
-            if (existingUserInfo != null) {
+            WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
+            if (wechatUser != null) {
                 // 更新数据库中的用户信息
-                User user = userService.getUserById(getInternalUserIdByOpenid(openid));
+                User user = userMapper.findByWechatOpenid(openid);
                 if (user != null) {
                     user.setPhone(phoneNumber);
-                    userService.updateUser(user);
+                    userMapper.updateUser(user);
                 }
                 
-                // 更新微信用户信息
-                existingUserInfo.put("phoneNumber", phoneNumber);
-                existingUserInfo.put("purePhoneNumber", purePhoneNumber);
-                existingUserInfo.put("countryCode", countryCode);
-                existingUserInfo.put("phoneUpdateTime", LocalDateTime.now());
+                // 更新微信用户的手机号
+                wechatUserMapper.updatePhoneNumber(openid, phoneNumber);
             }
             
             Map<String, Object> result = new HashMap<>();
@@ -262,89 +254,178 @@ public class WechatServiceImpl implements WechatService {
 
     @Override
     public String getAccessToken() {
-        // 实际项目中应该调用微信API获取access_token并缓存
-        // 这里返回模拟的token
-        return "mock_access_token_" + System.currentTimeMillis();
+        try {
+            String url = String.format(
+                "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+                appId, appSecret
+            );
+            
+            Map<String, Object> response = callWechatAPI(url, "GET", null);
+            if (response.get("errcode") != null && !Integer.valueOf(0).equals(response.get("errcode"))) {
+                throw new RuntimeException("获取AccessToken失败: " + response.get("errmsg"));
+            }
+            return (String) response.get("access_token");
+        } catch (Exception e) {
+            throw new RuntimeException("获取AccessToken失败: " + e.getMessage());
+        }
     }
 
     @Override
     public String generateQRCode(String scene, String page) {
-        // 实际项目中调用微信API生成小程序码
-        // 这里返回模拟的二维码URL
-        return "https://mock-qrcode-url.com/" + scene + "?page=" + page;
+        try {
+            String accessToken = getAccessToken();
+            String url = String.format(
+                "https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=%s",
+                accessToken
+            );
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("scene", scene);
+            if (page != null) {
+                data.put("page", page);
+            }
+            
+            // 调用微信API生成二维码，返回二进制数据
+            byte[] qrCodeBytes = callWechatBinaryAPI(url, data);
+            
+            // 保存二维码到存储并返回可访问的URL
+            return saveQRCodeToStorage(qrCodeBytes, scene);
+        } catch (Exception e) {
+            throw new RuntimeException("生成二维码失败: " + e.getMessage());
+        }
     }
 
     @Override
     public boolean sendTemplateMessage(String openid, String templateId, Map<String, Object> data, String page) {
         try {
-            // 实际项目中调用微信模板消息API
-            // 这里模拟发送成功
-            System.out.println("发送模板消息到: " + openid + ", 模板ID: " + templateId);
-            return true;
+            String accessToken = getAccessToken();
+            String url = String.format(
+                "https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=%s",
+                accessToken
+            );
+            
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("touser", openid);
+            requestData.put("template_id", templateId);
+            requestData.put("data", data);
+            if (page != null) {
+                requestData.put("page", page);
+            }
+            
+            Map<String, Object> response = callWechatAPI(url, "POST", requestData);
+            return Integer.valueOf(0).equals(response.get("errcode"));
         } catch (Exception e) {
-            return false;
+            throw new RuntimeException("发送模板消息失败: " + e.getMessage());
         }
     }
 
     @Override
     public Map<String, Object> refreshUserSession(String openid) {
-        Map<String, Object> sessionInfo = sessionStorage.get(openid);
-        if (sessionInfo != null) {
+        // 从数据库获取用户会话信息
+        WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
+        if (wechatUser != null) {
+            Map<String, Object> sessionInfo = new HashMap<>();
+            sessionInfo.put("openid", openid);
+            sessionInfo.put("sessionKey", wechatUser.getSessionKey());
             sessionInfo.put("refreshTime", LocalDateTime.now());
             return sessionInfo;
         }
         return null;
     }
 
-    // 辅助方法：模拟微信登录API响应
-    private Map<String, Object> simulateWechatLoginResponse(String code) {
-        Map<String, Object> response = new HashMap<>();
-        
-        if ("mock_error_code".equals(code)) {
-            response.put("errcode", 40013);
-            response.put("errmsg", "invalid appid");
-        } else {
-            String openid = "wx_openid_" + code.substring(Math.max(0, code.length() - 8));
-            String sessionKey = "session_key_" + UUID.randomUUID().toString().substring(0, 16);
-            String unionid = "wx_unionid_" + code.substring(Math.max(0, code.length() - 6));
+    // 调用微信API的通用方法
+    private Map<String, Object> callWechatAPI(String url, String method, Map<String, Object> data) {
+        try {
+            System.out.println("调用微信API: " + url);
+            String response;
             
-            response.put("openid", openid);
-            response.put("session_key", sessionKey);
-            response.put("unionid", unionid);
+            if ("GET".equals(method)) {
+                response = restTemplate.getForObject(url, String.class);
+            } else {
+                response = restTemplate.postForObject(url, data, String.class);
+            }
+            
+            System.out.println("微信API响应: " + response);
+            
+            if (response == null || response.trim().isEmpty()) {
+                throw new RuntimeException("微信API返回空响应");
+            }
+            
+            return objectMapper.readValue(response, Map.class);
+        } catch (Exception e) {
+            System.err.println("调用微信API失败 - URL: " + url + ", 错误: " + e.getMessage());
+            throw new RuntimeException("调用微信API失败: " + e.getMessage());
         }
-        
-        return response;
     }
 
-    // 辅助方法：模拟解密用户信息
-    private Map<String, Object> simulateDecryptUserInfo(String encryptedData) {
-        Map<String, Object> userInfo = new HashMap<>();
-        
-        // 模拟解密后的用户信息
-        userInfo.put("openId", "wx_openid_" + System.currentTimeMillis());
-        userInfo.put("nickName", "微信用户" + (int)(Math.random() * 1000));
-        userInfo.put("gender", (int)(Math.random() * 2) + 1); // 1男2女
-        userInfo.put("city", "北京");
-        userInfo.put("province", "北京");
-        userInfo.put("country", "中国");
-        userInfo.put("avatarUrl", "https://thirdwx.qlogo.cn/mmopen/mock_avatar_" + System.currentTimeMillis() + ".png");
-        userInfo.put("language", "zh_CN");
-        
-        return userInfo;
+    // 调用微信API返回二进制数据（如二维码）
+    private byte[] callWechatBinaryAPI(String url, Map<String, Object> data) {
+        try {
+            return restTemplate.postForObject(url, data, byte[].class);
+        } catch (Exception e) {
+            throw new RuntimeException("调用微信二进制API失败: " + e.getMessage());
+        }
     }
 
-    // 辅助方法：模拟解密手机号
-    private Map<String, Object> simulateDecryptPhoneNumber(String encryptedData) {
-        Map<String, Object> phoneInfo = new HashMap<>();
-        
-        // 生成模拟手机号
-        String phoneNumber = "138" + String.format("%08d", (int)(Math.random() * 100000000));
-        
-        phoneInfo.put("phoneNumber", phoneNumber);
-        phoneInfo.put("purePhoneNumber", phoneNumber);
-        phoneInfo.put("countryCode", "86");
-        
-        return phoneInfo;
+    // 真实的微信用户信息解密
+    private Map<String, Object> decryptWechatUserInfo(String encryptedData, String iv, String sessionKey) {
+        try {
+            // 使用AES-128-CBC解密
+            byte[] sessionKeyBytes = Base64.decodeBase64(sessionKey);
+            byte[] ivBytes = Base64.decodeBase64(iv);
+            byte[] encryptedBytes = Base64.decodeBase64(encryptedData);
+            
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            SecretKeySpec keySpec = new SecretKeySpec(sessionKeyBytes, "AES");
+            IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+            
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            
+            String decryptedData = new String(decryptedBytes, StandardCharsets.UTF_8);
+            return objectMapper.readValue(decryptedData, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("解密用户信息失败: " + e.getMessage());
+        }
+    }
+
+    // 真实的微信手机号解密
+    private Map<String, Object> decryptWechatPhoneNumber(String encryptedData, String iv, String sessionKey) {
+        try {
+            // 使用AES-128-CBC解密
+            byte[] sessionKeyBytes = Base64.decodeBase64(sessionKey);
+            byte[] ivBytes = Base64.decodeBase64(iv);
+            byte[] encryptedBytes = Base64.decodeBase64(encryptedData);
+            
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            SecretKeySpec keySpec = new SecretKeySpec(sessionKeyBytes, "AES");
+            IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+            
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            
+            String decryptedData = new String(decryptedBytes, StandardCharsets.UTF_8);
+            return objectMapper.readValue(decryptedData, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("解密手机号失败: " + e.getMessage());
+        }
+    }
+
+    // 保存二维码到存储
+    private String saveQRCodeToStorage(byte[] qrCodeBytes, String scene) {
+        try {
+            // 这里应该保存到文件系统或对象存储，返回可访问的URL
+            // 示例：保存到本地文件系统
+            String fileName = "qrcode_" + scene + "_" + System.currentTimeMillis() + ".png";
+            String filePath = "/uploads/qrcodes/" + fileName;
+            
+            // 实际项目中需要创建目录和文件
+            // Files.write(Paths.get(filePath), qrCodeBytes);
+            
+            return "https://yourdomain.com" + filePath;
+        } catch (Exception e) {
+            throw new RuntimeException("保存二维码失败: " + e.getMessage());
+        }
     }
 
     // 辅助方法：创建或更新用户

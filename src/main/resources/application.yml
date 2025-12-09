@@ -39,8 +39,8 @@ logging:
 # 微信小程序配置
 wechat:
   miniprogram:
-    appid: wx1234567890abcdef  # 替换为实际的小程序AppID
-    secret: your-secret-key     # 替换为实际的小程序Secret
+    appid: wxf57723c7452498fc  # 替换为实际的小程序AppID
+    secret: 20b0cbc9ccb75b236cf578bd538d1e7a     # 替换为实际的小程序Secret
     mchId: 1234567890          # 微信支付商户号（可选）
     apiKey: your-api-key       # 微信支付API密钥（可选）
     notifyUrl: https://yourdomain.com/api/wechat/pay/notify  # 支付回调地址（可选）
