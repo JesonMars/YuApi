@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.TripMapper">
+
+    <resultMap id="TripResultMap" type="com.pingo.yuapi.entity.Trip">
+        <id column="id" property="id" jdbcType="VARCHAR"/>
+        <result column="driver_id" property="driverId" jdbcType="VARCHAR"/>
+        <result column="driver_name" property="driverName" jdbcType="VARCHAR"/>
+        <result column="driver_avatar" property="driverAvatar" jdbcType="VARCHAR"/>
+        <result column="start_location" property="startLocation" jdbcType="VARCHAR"/>
+        <result column="end_location" property="endLocation" jdbcType="VARCHAR"/>
+        <result column="departure_time" property="departureTime" jdbcType="TIMESTAMP"/>
+        <result column="available_seats" property="availableSeats" jdbcType="INTEGER"/>
+        <result column="passenger_count" property="passengerCount" jdbcType="INTEGER"/>
+        <result column="price" property="price" jdbcType="DECIMAL"/>
+        <result column="vehicle_info" property="vehicleInfo" jdbcType="VARCHAR"/>
+        <result column="note" property="notes" jdbcType="LONGVARCHAR"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- 查询所有行程，按出发时间排序 -->
+    <select id="selectAllTrips" resultMap="TripResultMap">
+        SELECT * FROM trips 
+        ORDER BY departure_time ASC
+    </select>
+
+    <!-- 根据条件查询行程 -->
+    <select id="selectTripsByCondition" parameterType="map" resultMap="TripResultMap">
+        SELECT * FROM trips
+        <where>
+            <if test="date != null">
+                DATE(departure_time) = #{date}
+            </if>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="driverId != null">
+                AND driver_id = #{driverId}
+            </if>
+            <if test="startLocation != null">
+                AND start_location LIKE CONCAT('%', #{startLocation}, '%')
+            </if>
+            <if test="endLocation != null">
+                AND end_location LIKE CONCAT('%', #{endLocation}, '%')
+            </if>
+        </where>
+        ORDER BY departure_time ASC
+    </select>
+
+    <!-- 查询今天的可用行程 -->
+    <select id="selectTodayTrips" resultMap="TripResultMap">
+        SELECT * FROM trips 
+        WHERE DATE(departure_time) = DATE(#{now})
+        AND departure_time > #{now}
+        AND status = 'available'
+        ORDER BY departure_time ASC
+    </select>
+
+    <!-- 根据日期查询行程 -->
+    <select id="selectTripsByDate" resultMap="TripResultMap">
+        SELECT * FROM trips 
+        WHERE DATE(departure_time) = #{targetDate}
+        AND status = 'available'
+        ORDER BY departure_time ASC
+    </select>
+
+    <!-- 根据ID查询行程 -->
+    <select id="selectTripById" resultMap="TripResultMap">
+        SELECT * FROM trips WHERE id = #{id}
+    </select>
+
+    <!-- 插入行程 -->
+    <insert id="insertTrip" parameterType="com.pingo.yuapi.entity.Trip">
+        INSERT INTO trips (
+            id, driver_id, driver_name, driver_avatar, start_location, end_location, 
+            departure_time, available_seats, passenger_count, price, vehicle_info, 
+            note, type, status, create_time, update_time
+        ) VALUES (
+            #{id}, #{driverId}, #{driverName}, #{driverAvatar}, #{startLocation}, #{endLocation},
+            #{departureTime}, #{availableSeats}, #{passengerCount}, #{price}, #{vehicleInfo},
+            #{notes}, #{type}, #{status}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新行程 -->
+    <update id="updateTrip" parameterType="com.pingo.yuapi.entity.Trip">
+        UPDATE trips SET
+            driver_name = #{driverName},
+            driver_avatar = #{driverAvatar},
+            start_location = #{startLocation},
+            end_location = #{endLocation},
+            departure_time = #{departureTime},
+            available_seats = #{availableSeats},
+            passenger_count = #{passengerCount},
+            price = #{price},
+            vehicle_info = #{vehicleInfo},
+            note = #{notes},
+            type = #{type},
+            status = #{status},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除行程 -->
+    <delete id="deleteTripById">
+        DELETE FROM trips WHERE id = #{id}
+    </delete>
+
+    <!-- 查询用户的行程 -->
+    <select id="selectUserTrips" resultMap="TripResultMap">
+        SELECT * FROM trips 
+        WHERE driver_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 统计指定状态的行程数量 -->
+    <select id="countTripsByStatus" resultType="int">
+        SELECT COUNT(*) FROM trips WHERE status = #{status}
+    </select>
+
+    <!-- 更新行程状态 -->
+    <update id="updateTripStatus">
+        UPDATE trips SET 
+            status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 减少可用座位数 -->
+    <update id="decreaseAvailableSeats">
+        UPDATE trips SET 
+            available_seats = available_seats - #{count},
+            update_time = NOW()
+        WHERE id = #{id}
+        AND available_seats >= #{count}
+    </update>
+
+</mapper>

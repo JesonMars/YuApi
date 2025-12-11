@@ -1,49 +1,56 @@
 package com.pingo.yuapi.service.impl;
 
 import com.pingo.yuapi.entity.Trip;
+import com.pingo.yuapi.mapper.TripMapper;
 import com.pingo.yuapi.service.TripService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class TripServiceImpl implements TripService {
 
-    // 模拟数据存储
-    private Map<String, Trip> tripStorage = new HashMap<>();
-    
-    public TripServiceImpl() {
-        // 初始化一些示例数据
-        initSampleData();
-    }
+    @Autowired
+    private TripMapper tripMapper;
 
     @Override
     public List<Trip> getTripList(Map<String, Object> params) {
-        List<Trip> allTrips = new ArrayList<>(tripStorage.values());
+        // 使用数据库查询，并按出发时间排序
+        if (params == null || params.isEmpty()) {
+            return tripMapper.selectAllTrips();
+        }
         
-        // 根据参数进行过滤
-        return filterTrips(allTrips, params);
+        // 构建查询条件
+        Map<String, Object> queryParams = new HashMap<>();
+        
+        // 日期过滤
+        if (params.containsKey("date")) {
+            queryParams.put("date", params.get("date"));
+        }
+        
+        // 类型过滤
+        if (params.containsKey("type")) {
+            queryParams.put("type", params.get("type"));
+        }
+        
+        // 状态过滤（默认只查询可用的行程）
+        queryParams.put("status", params.getOrDefault("status", "available"));
+        
+        return tripMapper.selectTripsByCondition(queryParams);
     }
 
     @Override
     public List<Trip> getTodayTrips(Map<String, Object> params) {
         LocalDateTime now = LocalDateTime.now();
         
-        List<Trip> todayTrips = tripStorage.values().stream()
-            .filter(trip -> {
-                LocalDateTime departureTime = trip.getDepartureTime();
-                // 只返回今天且时间在当前时间之后的行程
-                return departureTime.toLocalDate().equals(now.toLocalDate()) 
-                       && departureTime.isAfter(now);
-            })
-            .sorted((t1, t2) -> t1.getDepartureTime().compareTo(t2.getDepartureTime()))
-            .collect(Collectors.toList());
+        // 从数据库查询今天且时间在当前时间之后的行程
+        List<Trip> todayTrips = tripMapper.selectTodayTrips(now);
         
-        return filterTrips(todayTrips, params);
+        return filterTripsAdditional(todayTrips, params);
     }
 
     @Override
@@ -52,11 +59,14 @@ public class TripServiceImpl implements TripService {
         trip.setId(tripId);
         trip.setCreateTime(LocalDateTime.now());
         trip.setUpdateTime(LocalDateTime.now());
-        trip.setStatus("available");
+        
+        if (trip.getStatus() == null) {
+            trip.setStatus("available");
+        }
         
         // 设置默认值
-        if (trip.getDriverName() == null) {
-            trip.setDriverName("用户" + tripId.substring(0, 6));
+        if (trip.getDriverName() == null && trip.getDriverId() != null) {
+            trip.setDriverName("用户" + trip.getDriverId().substring(0, Math.min(6, trip.getDriverId().length())));
         }
         if (trip.getDriverAvatar() == null) {
             trip.setDriverAvatar("/static/default-avatar.png");
@@ -65,146 +75,41 @@ public class TripServiceImpl implements TripService {
             trip.setAvailableSeats(trip.getPassengerCount() != null ? trip.getPassengerCount() : 1);
         }
         
-        tripStorage.put(tripId, trip);
+        tripMapper.insertTrip(trip);
         return tripId;
     }
 
     @Override
     public Trip getTripById(String tripId) {
-        return tripStorage.get(tripId);
+        return tripMapper.selectTripById(tripId);
     }
 
     @Override
     public boolean updateTrip(Trip trip) {
-        if (tripStorage.containsKey(trip.getId())) {
-            trip.setUpdateTime(LocalDateTime.now());
-            tripStorage.put(trip.getId(), trip);
-            return true;
-        }
-        return false;
+        trip.setUpdateTime(LocalDateTime.now());
+        return tripMapper.updateTrip(trip) > 0;
     }
 
     @Override
     public boolean deleteTrip(String tripId) {
-        return tripStorage.remove(tripId) != null;
+        return tripMapper.deleteTripById(tripId) > 0;
     }
 
     @Override
     public List<Trip> searchNearbyTrips(Map<String, Object> searchParams) {
         // 根据位置参数搜索附近的行程
-        List<Trip> allTrips = new ArrayList<>(tripStorage.values());
-        return filterTrips(allTrips, searchParams);
-    }
-
-    /**
-     * 根据参数过滤行程
-     */
-    private List<Trip> filterTrips(List<Trip> trips, Map<String, Object> params) {
-        if (params == null || params.isEmpty()) {
-            return trips;
-        }
-
-        return trips.stream()
-            .filter(trip -> {
-                // 按类型过滤
-                String type = (String) params.get("type");
-                if (type != null && !type.equals(trip.getType())) {
-                    return false;
-                }
-                
-                // 按出发时间段过滤
-                String timeRange = (String) params.get("departureTimeRange");
-                if (timeRange != null && !timeRange.equals("不限")) {
-                    LocalTime tripTime = trip.getDepartureTime().toLocalTime();
-                    if (!isTimeInRange(tripTime, timeRange)) {
-                        return false;
-                    }
-                }
-                
-                // 按状态过滤
-                String status = (String) params.get("status");
-                if (status != null && !status.equals(trip.getStatus())) {
-                    return false;
-                }
-                
-                return true;
-            })
-            .collect(Collectors.toList());
-    }
-
-    /**
-     * 检查时间是否在指定范围内
-     */
-    private boolean isTimeInRange(LocalTime time, String timeRange) {
-        try {
-            String[] parts = timeRange.split("-");
-            if (parts.length == 2) {
-                LocalTime start = LocalTime.parse(parts[0]);
-                LocalTime end = LocalTime.parse(parts[1]);
-                return !time.isBefore(start) && time.isBefore(end);
-            }
-        } catch (Exception e) {
-            // 解析失败，不过滤
-        }
-        return true;
-    }
-
-    /**
-     * 初始化示例数据
-     */
-    private void initSampleData() {
-        LocalDateTime baseTime = LocalDateTime.now();
+        Map<String, Object> queryParams = new HashMap<>();
         
-        // 示例行程1
-        Trip trip1 = new Trip();
-        trip1.setId("trip_001");
-        trip1.setDriverId("driver_001");
-        trip1.setDriverName("张师傅");
-        trip1.setDriverAvatar("/static/avatar1.png");
-        trip1.setStartLocation("荣盛阿尔卡迪亚·花语城七地块");
-        trip1.setEndLocation("北京市建国门");
-        trip1.setDepartureTime(baseTime.plusHours(2));
-        trip1.setAvailableSeats(3);
-        trip1.setPrice(new BigDecimal("38"));
-        trip1.setVehicleInfo("特斯拉 Model 3 白色");
-        trip1.setStatus("available");
-        trip1.setType("car_seeking_people");
-        trip1.setCreateTime(baseTime.minusHours(1));
-        tripStorage.put("trip_001", trip1);
-
-        // 示例行程2
-        Trip trip2 = new Trip();
-        trip2.setId("trip_002");
-        trip2.setDriverId("driver_002");
-        trip2.setDriverName("李师傅");
-        trip2.setDriverAvatar("/static/avatar2.png");
-        trip2.setStartLocation("北京市建国门");
-        trip2.setEndLocation("廊坊市荣盛阿尔卡迪亚");
-        trip2.setDepartureTime(baseTime.plusHours(3));
-        trip2.setAvailableSeats(2);
-        trip2.setPrice(new BigDecimal("42"));
-        trip2.setVehicleInfo("比亚迪 汉 黑色");
-        trip2.setStatus("available");
-        trip2.setType("car_seeking_people");
-        trip2.setCreateTime(baseTime.minusMinutes(30));
-        tripStorage.put("trip_002", trip2);
-
-        // 示例行程3 - 已过期的行程
-        Trip trip3 = new Trip();
-        trip3.setId("trip_003");
-        trip3.setDriverId("driver_003");
-        trip3.setDriverName("王师傅");
-        trip3.setDriverAvatar("/static/avatar3.png");
-        trip3.setStartLocation("永安里地铁站");
-        trip3.setEndLocation("廊坊市香河");
-        trip3.setDepartureTime(baseTime.minusHours(1)); // 已过期
-        trip3.setAvailableSeats(1);
-        trip3.setPrice(new BigDecimal("35"));
-        trip3.setVehicleInfo("大众 朗逸 蓝色");
-        trip3.setStatus("completed");
-        trip3.setType("car_seeking_people");
-        trip3.setCreateTime(baseTime.minusHours(2));
-        tripStorage.put("trip_003", trip3);
+        if (searchParams.containsKey("startLocation")) {
+            queryParams.put("startLocation", searchParams.get("startLocation"));
+        }
+        if (searchParams.containsKey("endLocation")) {
+            queryParams.put("endLocation", searchParams.get("endLocation"));
+        }
+        
+        queryParams.put("status", "available");
+        
+        return tripMapper.selectTripsByCondition(queryParams);
     }
 
     @Override
@@ -228,7 +133,7 @@ public class TripServiceImpl implements TripService {
         trip.setCreateTime(LocalDateTime.now());
         trip.setUpdateTime(LocalDateTime.now());
         
-        tripStorage.put(tripId, trip);
+        tripMapper.insertTrip(trip);
         return tripId;
     }
 
@@ -252,65 +157,57 @@ public class TripServiceImpl implements TripService {
         trip.setCreateTime(LocalDateTime.now());
         trip.setUpdateTime(LocalDateTime.now());
         
-        tripStorage.put(tripId, trip);
+        tripMapper.insertTrip(trip);
         return tripId;
     }
 
     @Override
     public List<Trip> getUserTrips(String userId, Integer page, Integer limit) {
-        return tripStorage.values().stream()
-            .filter(trip -> userId.equals(trip.getDriverId()))
-            .sorted((t1, t2) -> t2.getCreateTime().compareTo(t1.getCreateTime()))
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .collect(Collectors.toList());
+        int offset = (page - 1) * limit;
+        return tripMapper.selectUserTrips(userId, offset, limit);
     }
 
     @Override
     public boolean joinTrip(String tripId, Map<String, Object> joinData) {
-        Trip trip = tripStorage.get(tripId);
-        if (trip != null && trip.getAvailableSeats() > 0) {
+        Trip trip = tripMapper.selectTripById(tripId);
+        if (trip != null && trip.getAvailableSeats() != null && trip.getAvailableSeats() > 0) {
             // 减少可用座位数
-            trip.setAvailableSeats(trip.getAvailableSeats() - 1);
-            trip.setUpdateTime(LocalDateTime.now());
+            int result = tripMapper.decreaseAvailableSeats(tripId, 1);
             
-            // 如果没有可用座位了，更新状态
-            if (trip.getAvailableSeats() == 0) {
-                trip.setStatus("full");
+            if (result > 0) {
+                // 检查是否没有可用座位了，更新状态
+                Trip updatedTrip = tripMapper.selectTripById(tripId);
+                if (updatedTrip.getAvailableSeats() <= 0) {
+                    tripMapper.updateTripStatus(tripId, "full");
+                }
+                return true;
             }
-            return true;
         }
         return false;
     }
 
     @Override
     public boolean cancelTrip(String tripId, String reason) {
-        Trip trip = tripStorage.get(tripId);
+        Trip trip = tripMapper.selectTripById(tripId);
         if (trip != null) {
             trip.setStatus("cancelled");
             trip.setNotes(trip.getNotes() + " [取消原因: " + reason + "]");
             trip.setUpdateTime(LocalDateTime.now());
-            return true;
+            return tripMapper.updateTrip(trip) > 0;
         }
         return false;
     }
 
     @Override
     public boolean completeTrip(String tripId) {
-        Trip trip = tripStorage.get(tripId);
-        if (trip != null) {
-            trip.setStatus("completed");
-            trip.setUpdateTime(LocalDateTime.now());
-            return true;
-        }
-        return false;
+        return tripMapper.updateTripStatus(tripId, "completed") > 0;
     }
 
     @Override
     public List<Map<String, Object>> getTripParticipants(String tripId) {
         List<Map<String, Object>> participants = new ArrayList<>();
         
-        // 模拟参与者数据
+        // 模拟参与者数据（实际应该查询trip_participants表）
         Map<String, Object> participant1 = new HashMap<>();
         participant1.put("id", "user_101");
         participant1.put("name", "乘客1");
@@ -320,15 +217,50 @@ public class TripServiceImpl implements TripService {
         participant1.put("status", "confirmed");
         participants.add(participant1);
         
-        Map<String, Object> participant2 = new HashMap<>();
-        participant2.put("id", "user_102");
-        participant2.put("name", "乘客2");
-        participant2.put("avatar", "/static/passenger2.png");
-        participant2.put("phone", "139****5678");
-        participant2.put("joinTime", LocalDateTime.now().minusMinutes(15).toString());
-        participant2.put("status", "pending");
-        participants.add(participant2);
-        
         return participants;
+    }
+
+    /**
+     * 额外的前端筛选逻辑（保留原有的筛选功能）
+     */
+    private List<Trip> filterTripsAdditional(List<Trip> trips, Map<String, Object> params) {
+        if (params == null || params.isEmpty()) {
+            return trips;
+        }
+
+        return trips.stream()
+            .filter(trip -> {
+                // 按出发时间段过滤
+                String timeRange = (String) params.get("departureTimeRange");
+                if (timeRange != null && !timeRange.equals("不限")) {
+                    LocalDateTime departureTime = trip.getDepartureTime();
+                    if (departureTime != null) {
+                        String timeStr = String.format("%02d:%02d", 
+                            departureTime.getHour(), 
+                            departureTime.getMinute());
+                        if (!isTimeInRange(timeStr, timeRange)) {
+                            return false;
+                        }
+                    }
+                }
+                
+                return true;
+            })
+            .collect(ArrayList::new, (list, trip) -> list.add(trip), ArrayList::addAll);
+    }
+
+    /**
+     * 检查时间是否在指定范围内
+     */
+    private boolean isTimeInRange(String timeStr, String timeRange) {
+        try {
+            String[] parts = timeRange.split("-");
+            if (parts.length == 2) {
+                return timeStr.compareTo(parts[0]) >= 0 && timeStr.compareTo(parts[1]) < 0;
+            }
+        } catch (Exception e) {
+            // 解析失败，不过滤
+        }
+        return true;
     }
 }

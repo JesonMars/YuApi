@@ -350,3 +350,13 @@ INSERT INTO cities (city_name, city_code, province, adcode, center_lng, center_l
 ('厦门市', 'xm', '福建省', '350200', 118.11022, 24.490474, 1, 48),
 ('合肥市', 'hf', '安徽省', '340100', 117.283042, 31.86119, 1, 49),
 ('南昌市', 'nc', '江西省', '360100', 115.892151, 28.676493, 1, 50);
+
+-- 插入行程测试数据
+INSERT INTO trips (id, driver_id, driver_name, driver_avatar, start_location, end_location, departure_time, available_seats, price, vehicle_info, type, status, note) VALUES
+-- 今天的行程
+('trip_001', 'driver_001', '张师傅', '/static/avatar1.png', '荣盛阿尔卡迪亚·花语城七地块', '北京市建国门', DATE_ADD(NOW(), INTERVAL 2 HOUR), 3, 38.00, '特斯拉 Model 3 白色', 'car_seeking_people', 'available', '准时出发'),
+('trip_002', 'driver_002', '李师傅', '/static/avatar2.png', '北京市建国门', '廊坊市荣盛阿尔卡迪亚', DATE_ADD(NOW(), INTERVAL 3 HOUR), 2, 42.00, '比亚迪 汉 黑色', 'car_seeking_people', 'available', '高速直达'),
+('trip_003', 'driver_003', '王师傅', '/static/avatar3.png', '永安里地铁站', '廊坊市香河', DATE_SUB(NOW(), INTERVAL 1 HOUR), 1, 35.00, '大众 朗逸 蓝色', 'car_seeking_people', 'completed', '已完成'),
+-- 明天的行程
+('trip_004', 'driver_004', '赵师傅', '/static/avatar4.png', '荣盛阿尔卡迪亚·花语城', '朝阳门地铁站', DATE_ADD(DATE_ADD(CURDATE(), INTERVAL 1 DAY), INTERVAL 8 HOUR), 3, 25.00, '白色 宝马3系', 'car_seeking_people', 'available', '早高峰出行'),
+('trip_005', 'driver_005', '孙女士', '/static/avatar5.png', '金台夕照地铁站', '荣盛阿尔卡迪亚·花语城', DATE_ADD(DATE_ADD(CURDATE(), INTERVAL 1 DAY), INTERVAL 18 HOUR), 2, 30.00, '黑色 奔驰C级', 'car_seeking_people', 'available', '晚高峰返程');
