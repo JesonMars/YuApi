@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.CityMapper">
+
+    <resultMap id="CityResultMap" type="com.pingo.yuapi.entity.City">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="city_name" property="cityName" jdbcType="VARCHAR"/>
+        <result column="city_code" property="cityCode" jdbcType="VARCHAR"/>
+        <result column="province" property="province" jdbcType="VARCHAR"/>
+        <result column="adcode" property="adcode" jdbcType="VARCHAR"/>
+        <result column="center_lng" property="centerLng" jdbcType="DECIMAL"/>
+        <result column="center_lat" property="centerLat" jdbcType="DECIMAL"/>
+        <result column="status" property="status" jdbcType="INTEGER"/>
+        <result column="sort_order" property="sortOrder" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <select id="selectEnabledCities" resultMap="CityResultMap">
+        SELECT * FROM cities 
+        WHERE status = 1 
+        ORDER BY sort_order ASC, city_name ASC
+    </select>
+
+    <select id="selectCitiesByName" resultMap="CityResultMap">
+        SELECT * FROM cities 
+        WHERE status = 1 
+        AND city_name LIKE CONCAT('%', #{cityName}, '%')
+        ORDER BY sort_order ASC, city_name ASC
+    </select>
+
+    <select id="selectById" resultMap="CityResultMap">
+        SELECT * FROM cities WHERE id = #{id}
+    </select>
+
+    <select id="selectByCityName" resultMap="CityResultMap">
+        SELECT * FROM cities WHERE city_name = #{cityName}
+    </select>
+
+    <insert id="insert" parameterType="com.pingo.yuapi.entity.City" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cities (city_name, city_code, province, adcode, center_lng, center_lat, status, sort_order)
+        VALUES (#{cityName}, #{cityCode}, #{province}, #{adcode}, #{centerLng}, #{centerLat}, #{status}, #{sortOrder})
+    </insert>
+
+    <update id="update" parameterType="com.pingo.yuapi.entity.City">
+        UPDATE cities 
+        SET city_name = #{cityName},
+            city_code = #{cityCode},
+            province = #{province},
+            adcode = #{adcode},
+            center_lng = #{centerLng},
+            center_lat = #{centerLat},
+            status = #{status},
+            sort_order = #{sortOrder}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM cities WHERE id = #{id}
+    </delete>
+
+</mapper>

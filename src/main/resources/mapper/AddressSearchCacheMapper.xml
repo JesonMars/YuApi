@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.AddressSearchCacheMapper">
+
+    <resultMap id="AddressSearchCacheResultMap" type="com.pingo.yuapi.entity.AddressSearchCache">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="city_name" property="cityName" jdbcType="VARCHAR"/>
+        <result column="keyword" property="keyword" jdbcType="VARCHAR"/>
+        <result column="results" property="results" jdbcType="LONGVARCHAR"/>
+        <result column="source" property="source" jdbcType="VARCHAR"/>
+        <result column="hit_count" property="hitCount" jdbcType="INTEGER"/>
+        <result column="last_hit_time" property="lastHitTime" jdbcType="TIMESTAMP"/>
+        <result column="expire_time" property="expireTime" jdbcType="TIMESTAMP"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <select id="selectBySearch" resultMap="AddressSearchCacheResultMap">
+        SELECT * FROM address_search_cache 
+        WHERE city_name = #{cityName} 
+        AND keyword = #{keyword} 
+        AND source = #{source}
+        AND (expire_time IS NULL OR expire_time > NOW())
+    </select>
+
+    <insert id="insert" parameterType="com.pingo.yuapi.entity.AddressSearchCache" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO address_search_cache (city_name, keyword, results, source, hit_count, last_hit_time, expire_time)
+        VALUES (#{cityName}, #{keyword}, #{results}, #{source}, #{hitCount}, #{lastHitTime}, #{expireTime})
+    </insert>
+
+    <update id="update" parameterType="com.pingo.yuapi.entity.AddressSearchCache">
+        UPDATE address_search_cache 
+        SET results = #{results},
+            hit_count = #{hitCount},
+            last_hit_time = #{lastHitTime},
+            expire_time = #{expireTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateHitCount">
+        UPDATE address_search_cache 
+        SET hit_count = #{hitCount},
+            last_hit_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteExpiredCache">
+        DELETE FROM address_search_cache 
+        WHERE expire_time IS NOT NULL AND expire_time &lt;= NOW()
+    </delete>
+
+    <delete id="deleteBySearch">
+        DELETE FROM address_search_cache 
+        WHERE city_name = #{cityName} 
+        AND keyword = #{keyword} 
+        AND source = #{source}
+    </delete>
+
+</mapper>
