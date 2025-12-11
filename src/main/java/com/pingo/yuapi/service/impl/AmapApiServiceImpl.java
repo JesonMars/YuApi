@@ -106,10 +106,8 @@ public class AmapApiServiceImpl implements MapApiService {
             }
             
             // 构建请求URL
-            String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
-            String encodedCity = URLEncoder.encode(city, StandardCharsets.UTF_8);
             String url = String.format("%s?key=%s&keywords=%s&city=%s&output=json&offset=20&page=1",
-                    searchUrl, apiKey, encodedKeyword, encodedCity);
+                    searchUrl, apiKey, keyword, city);
             
             logger.info("调用高德API搜索: {}", url);
             
@@ -205,10 +203,8 @@ public class AmapApiServiceImpl implements MapApiService {
                 return new HashMap<>();
             }
             
-            String encodedAddress = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String encodedCity = URLEncoder.encode(city, StandardCharsets.UTF_8);
             String url = String.format("%s?key=%s&address=%s&city=%s&output=json",
-                    geocodeUrl, apiKey, encodedAddress, encodedCity);
+                    geocodeUrl, apiKey, address, city);
             
             String response = restTemplate.getForObject(url, String.class);
             JsonNode rootNode = objectMapper.readTree(response);
