@@ -10,37 +10,51 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Arrays;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class TripServiceImpl implements TripService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TripServiceImpl.class);
+
     @Autowired
     private TripMapper tripMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Override
     public List<Trip> getTripList(Map<String, Object> params) {
         // 使用数据库查询，并按出发时间排序
+        List<Trip> trips;
         if (params == null || params.isEmpty()) {
-            return tripMapper.selectAllTrips();
+            trips = tripMapper.selectAllTrips();
+        } else {
+            // 构建查询条件
+            Map<String, Object> queryParams = new HashMap<>();
+            
+            // 日期过滤
+            if (params.containsKey("date")) {
+                queryParams.put("date", params.get("date"));
+            }
+            
+            // 类型过滤
+            if (params.containsKey("type")) {
+                queryParams.put("type", params.get("type"));
+            }
+            
+            // 状态过滤（默认只查询可用的行程）
+            queryParams.put("status", params.getOrDefault("status", "available"));
+            
+            trips = tripMapper.selectTripsByCondition(queryParams);
         }
         
-        // 构建查询条件
-        Map<String, Object> queryParams = new HashMap<>();
-        
-        // 日期过滤
-        if (params.containsKey("date")) {
-            queryParams.put("date", params.get("date"));
-        }
-        
-        // 类型过滤
-        if (params.containsKey("type")) {
-            queryParams.put("type", params.get("type"));
-        }
-        
-        // 状态过滤（默认只查询可用的行程）
-        queryParams.put("status", params.getOrDefault("status", "available"));
-        
-        return tripMapper.selectTripsByCondition(queryParams);
+        // 应用额外的筛选逻辑（地铁站、关注、距离等）
+        return filterTripsAdditional(trips, params);
     }
 
     @Override
@@ -228,6 +242,21 @@ public class TripServiceImpl implements TripService {
             return trips;
         }
 
+        // 用户家和公司的坐标（这里使用固定坐标，实际应该从用户设置中获取）
+        double homeLat = 39.5283;  // 荣盛阿尔卡迪亚·花语城纬度
+        double homeLng = 116.7428; // 荣盛阿尔卡迪亚·花语城经度
+        double companyLat = 39.9081; // 国贸CBD纬度
+        double companyLng = 116.4609; // 国贸CBD经度
+        
+        // 获取已关注的用户列表（如果需要）
+        Set<String> followedUserIds = null;
+        Object followsOnlyObj = params.get("followsOnly");
+        if (followsOnlyObj != null && (Boolean.parseBoolean(followsOnlyObj.toString()) || "true".equals(followsOnlyObj.toString()))) {
+            followedUserIds = getFollowedUserIds((String) params.get("currentUserId"));
+        }
+
+        final Set<String> finalFollowedUserIds = followedUserIds;
+        
         return trips.stream()
             .filter(trip -> {
                 // 按出发时间段过滤
@@ -241,6 +270,84 @@ public class TripServiceImpl implements TripService {
                         if (!isTimeInRange(timeStr, timeRange)) {
                             return false;
                         }
+                    }
+                }
+                
+                // 家附近距离筛选
+                Object homeDistanceObj = params.get("homeDistance");
+                if (homeDistanceObj != null) {
+                    try {
+                        int homeDistance = homeDistanceObj instanceof String ? 
+                            Integer.parseInt((String) homeDistanceObj) : (Integer) homeDistanceObj;
+                        if (homeDistance > 0 && trip.getStartLatitude() != null && trip.getStartLongitude() != null) {
+                            double distance = calculateDistance(homeLat, homeLng, 
+                                trip.getStartLatitude(), trip.getStartLongitude());
+                            if (distance > homeDistance) {
+                                return false;
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        // 忽略无法解析的距离参数
+                    }
+                }
+                
+                // 公司附近距离筛选
+                Object companyDistanceObj = params.get("companyDistance");
+                if (companyDistanceObj != null) {
+                    try {
+                        int companyDistance = companyDistanceObj instanceof String ? 
+                            Integer.parseInt((String) companyDistanceObj) : (Integer) companyDistanceObj;
+                        if (companyDistance > 0 && trip.getStartLatitude() != null && trip.getStartLongitude() != null) {
+                            double distance = calculateDistance(companyLat, companyLng, 
+                                trip.getStartLatitude(), trip.getStartLongitude());
+                            if (distance > companyDistance) {
+                                return false;
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        // 忽略无法解析的距离参数
+                    }
+                }
+                
+                // 关注筛选
+                if (finalFollowedUserIds != null && !finalFollowedUserIds.isEmpty()) {
+                    if (!finalFollowedUserIds.contains(trip.getDriverId())) {
+                        return false;
+                    }
+                }
+                
+                // 地铁站筛选
+                Object subwayStationsObj = params.get("subwayStations");
+                List<String> subwayStations = null;
+                if (subwayStationsObj instanceof String) {
+                    String stationsStr = (String) subwayStationsObj;
+                    if (!stationsStr.isEmpty()) {
+                        subwayStations = Arrays.asList(stationsStr.split(","));
+                    }
+                } else if (subwayStationsObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<String> stationsList = (List<String>) subwayStationsObj;
+                    subwayStations = stationsList;
+                }
+                
+                if (subwayStations != null && !subwayStations.isEmpty()) {
+                    boolean foundMatch = false;
+                    String startLocation = trip.getStartLocation();
+                    String endLocation = trip.getEndLocation();
+                    
+                    for (String stationId : subwayStations) {
+                        String stationName = getSubwayStationName(stationId);
+                        if (stationName != null) {
+                            if ((startLocation != null && startLocation.contains(stationName)) ||
+                                (endLocation != null && endLocation.contains(stationName))) {
+                                foundMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!foundMatch) {
+                        return false;
                     }
                 }
                 
@@ -262,5 +369,71 @@ public class TripServiceImpl implements TripService {
             // 解析失败，不过滤
         }
         return true;
+    }
+
+    /**
+     * 使用Haversine公式计算两点间的距离（单位：米）
+     * @param lat1 第一点纬度
+     * @param lng1 第一点经度
+     * @param lat2 第二点纬度
+     * @param lng2 第二点经度
+     * @return 距离（米）
+     */
+    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+        final double R = 6371000; // 地球半径（米）
+        
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double deltaLatRad = Math.toRadians(lat2 - lat1);
+        double deltaLngRad = Math.toRadians(lng2 - lng1);
+        
+        double a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+                   Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                   Math.sin(deltaLngRad / 2) * Math.sin(deltaLngRad / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        
+        return R * c;
+    }
+
+    /**
+     * 获取用户关注的用户ID列表
+     */
+    private Set<String> getFollowedUserIds(String currentUserId) {
+        Set<String> followedUserIds = new HashSet<>();
+        
+        if (currentUserId == null || currentUserId.isEmpty()) {
+            return followedUserIds;
+        }
+        
+        try {
+            // 查询当前用户关注的用户ID列表
+            String sql = "SELECT target_user_id FROM user_follows WHERE user_id = ?";
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, currentUserId);
+            
+            for (Map<String, Object> row : results) {
+                followedUserIds.add((String) row.get("target_user_id"));
+            }
+        } catch (Exception e) {
+            logger.error("查询关注用户列表失败: {}", e.getMessage(), e);
+        }
+        
+        return followedUserIds;
+    }
+
+    /**
+     * 根据地铁站ID获取地铁站名称
+     */
+    private String getSubwayStationName(String stationId) {
+        switch (stationId) {
+            case "yonganli": return "永安里";
+            case "jianguomen": return "建国门";
+            case "beijingzhan": return "北京站";
+            case "guomao": return "国贸";
+            case "dongdaqiao": return "东大桥";
+            case "jintaixizhao": return "金台夕照";
+            case "chaoyangmen": return "朝阳门";
+            case "guangmenmenwai": return "广渠门外";
+            default: return null;
+        }
     }
 }

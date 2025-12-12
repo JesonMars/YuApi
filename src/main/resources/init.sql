@@ -151,6 +151,10 @@ CREATE TABLE IF NOT EXISTS trips (
     driver_avatar VARCHAR(500),
     start_location VARCHAR(200) NOT NULL,
     end_location VARCHAR(200) NOT NULL,
+    start_longitude DECIMAL(10,7) COMMENT '起点经度',
+    start_latitude DECIMAL(10,7) COMMENT '起点纬度',
+    end_longitude DECIMAL(10,7) COMMENT '终点经度',
+    end_latitude DECIMAL(10,7) COMMENT '终点纬度',
     departure_time TIMESTAMP NOT NULL,
     available_seats INT,
     passenger_count INT,
@@ -164,7 +168,9 @@ CREATE TABLE IF NOT EXISTS trips (
     INDEX idx_driver_id (driver_id),
     INDEX idx_departure_time (departure_time),
     INDEX idx_status (status),
-    INDEX idx_type (type)
+    INDEX idx_type (type),
+    INDEX idx_start_location (start_longitude, start_latitude),
+    INDEX idx_end_location (end_longitude, end_latitude)
 ) COMMENT '行程表';
 
 -- 用户关注表

@@ -25,8 +25,14 @@ public class DatabaseMigration implements CommandLineRunner {
             // 添加 first_setup_completed 字段（如果不存在）
             addFirstSetupCompletedColumn();
             
+            // 添加坐标字段到trips表（如果不存在）
+            addTripCoordinateColumns();
+            
             // 添加测试数据（如果不存在）
             addTestData();
+            
+            // 添加测试关注数据
+            addTestFollowData();
         } catch (Exception e) {
             logger.error("数据库迁移失败: {}", e.getMessage(), e);
         }
@@ -73,6 +79,105 @@ public class DatabaseMigration implements CommandLineRunner {
             
         } catch (Exception e) {
             logger.error("添加 first_setup_completed 字段失败: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 添加坐标字段到trips表
+     */
+    private void addTripCoordinateColumns() {
+        try {
+            // 检查起点经度字段是否已存在
+            String checkColumnSql = """
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = 'yugo_db' 
+                AND TABLE_NAME = 'trips' 
+                AND COLUMN_NAME = 'start_longitude'
+                """;
+            
+            Integer count = jdbcTemplate.queryForObject(checkColumnSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                // 添加起点和终点坐标字段
+                String[] alterSqls = {
+                    "ALTER TABLE trips ADD COLUMN start_longitude DECIMAL(10,7) COMMENT '起点经度'",
+                    "ALTER TABLE trips ADD COLUMN start_latitude DECIMAL(10,7) COMMENT '起点纬度'",
+                    "ALTER TABLE trips ADD COLUMN end_longitude DECIMAL(10,7) COMMENT '终点经度'",
+                    "ALTER TABLE trips ADD COLUMN end_latitude DECIMAL(10,7) COMMENT '终点纬度'"
+                };
+                
+                for (String sql : alterSqls) {
+                    jdbcTemplate.execute(sql);
+                }
+                
+                logger.info("成功添加坐标字段到 trips 表");
+                
+                // 添加空间索引
+                try {
+                    jdbcTemplate.execute("CREATE INDEX idx_start_location ON trips(start_longitude, start_latitude)");
+                    jdbcTemplate.execute("CREATE INDEX idx_end_location ON trips(end_longitude, end_latitude)");
+                    logger.info("成功创建位置坐标索引");
+                } catch (Exception e) {
+                    logger.warn("创建位置索引失败（可能已存在）: {}", e.getMessage());
+                }
+                
+                // 为现有数据添加默认坐标（北京地区）
+                updateExistingTripsWithCoordinates();
+                
+            } else {
+                logger.info("坐标字段已存在，跳过迁移");
+            }
+            
+        } catch (Exception e) {
+            logger.error("添加坐标字段失败: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 为现有行程数据添加坐标信息
+     */
+    private void updateExistingTripsWithCoordinates() {
+        try {
+            // 为常见地点添加坐标
+            String[] updateSqls = {
+                // 荣盛阿尔卡迪亚·花语城
+                "UPDATE trips SET start_longitude = 116.7428, start_latitude = 39.5283 WHERE start_location LIKE '%荣盛%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.7428, end_latitude = 39.5283 WHERE end_location LIKE '%荣盛%' AND end_longitude IS NULL",
+                
+                // 永安里地铁站
+                "UPDATE trips SET start_longitude = 116.4431, start_latitude = 39.9147 WHERE start_location LIKE '%永安里%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.4431, end_latitude = 39.9147 WHERE end_location LIKE '%永安里%' AND end_longitude IS NULL",
+                
+                // 建国门地铁站
+                "UPDATE trips SET start_longitude = 116.4352, start_latitude = 39.9063 WHERE start_location LIKE '%建国门%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.4352, end_latitude = 39.9063 WHERE end_location LIKE '%建国门%' AND end_longitude IS NULL",
+                
+                // 国贸CBD
+                "UPDATE trips SET start_longitude = 116.4609, start_latitude = 39.9081 WHERE start_location LIKE '%国贸%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.4609, end_latitude = 39.9081 WHERE end_location LIKE '%国贸%' AND end_longitude IS NULL",
+                
+                // 北京站
+                "UPDATE trips SET start_longitude = 116.4267, start_latitude = 39.9031 WHERE start_location LIKE '%北京站%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.4267, end_latitude = 39.9031 WHERE end_location LIKE '%北京站%' AND end_longitude IS NULL",
+                
+                // 朝阳门地铁站
+                "UPDATE trips SET start_longitude = 116.4342, start_latitude = 39.9242 WHERE start_location LIKE '%朝阳门%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.4342, end_latitude = 39.9242 WHERE end_location LIKE '%朝阳门%' AND end_longitude IS NULL",
+                
+                // 中关村软件园
+                "UPDATE trips SET start_longitude = 116.2923, start_latitude = 40.0434 WHERE start_location LIKE '%中关村%软件园%' AND start_longitude IS NULL",
+                "UPDATE trips SET end_longitude = 116.2923, end_latitude = 40.0434 WHERE end_location LIKE '%中关村%软件园%' AND end_longitude IS NULL"
+            };
+            
+            for (String sql : updateSqls) {
+                int updated = jdbcTemplate.update(sql);
+                if (updated > 0) {
+                    logger.info("更新了 {} 条行程坐标数据", updated);
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("更新现有行程坐标失败: {}", e.getMessage(), e);
         }
     }
     
@@ -140,6 +245,60 @@ public class DatabaseMigration implements CommandLineRunner {
         
         for (String sql : tripSqls) {
             jdbcTemplate.execute(sql);
+        }
+    }
+    
+    /**
+     * 添加测试关注数据
+     */
+    private void addTestFollowData() {
+        try {
+            // 检查是否已有关注数据
+            String checkSql = "SELECT COUNT(*) FROM user_follows";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                // 先创建real_driver_001用户
+                insertRealDriverUser();
+                
+                // 插入测试关注数据
+                String[] followSqls = {
+                    // 假设当前用户是test-user-001，他关注了其他几个司机
+                    "INSERT INTO user_follows (id, user_id, target_user_id) VALUES " +
+                    "('follow-001', 'test-user-001', 'test-user-002')",  // 张师傅关注李女士
+                    
+                    "INSERT INTO user_follows (id, user_id, target_user_id) VALUES " +
+                    "('follow-002', 'test-user-001', 'test-user-003')",  // 张师傅关注王先生
+                    
+                    "INSERT INTO user_follows (id, user_id, target_user_id) VALUES " +
+                    "('follow-003', 'test-user-001', 'real_driver_001')" // 张师傅关注数据库测试司机
+                };
+                
+                for (String sql : followSqls) {
+                    jdbcTemplate.execute(sql);
+                }
+                logger.info("成功添加测试关注数据");
+            } else {
+                logger.info("测试关注数据已存在，跳过添加");
+            }
+        } catch (Exception e) {
+            logger.error("添加测试关注数据失败: {}", e.getMessage(), e);
+        }
+    }
+    
+    private void insertRealDriverUser() {
+        try {
+            String checkUserSql = "SELECT COUNT(*) FROM users WHERE id = 'real_driver_001'";
+            Integer userCount = jdbcTemplate.queryForObject(checkUserSql, Integer.class);
+            
+            if (userCount == null || userCount == 0) {
+                String insertUserSql = "INSERT INTO users (id, name, phone, avatar, community, vehicle_brand, vehicle_color, plate_number, balance, verification_status, wechat_openid, first_setup_completed) VALUES " +
+                    "('real_driver_001', '数据库测试司机', '13800138005', '/static/db_avatar.png', '软件园小区', '特斯拉', '红色', '京E88888', 300.00, 'verified', 'wx_test_005', 1)";
+                jdbcTemplate.execute(insertUserSql);
+                logger.info("成功创建real_driver_001用户");
+            }
+        } catch (Exception e) {
+            logger.error("创建real_driver_001用户失败: {}", e.getMessage(), e);
         }
     }
 }
