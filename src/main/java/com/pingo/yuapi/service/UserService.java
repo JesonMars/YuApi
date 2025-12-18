@@ -142,4 +142,14 @@ public interface UserService {
      * 清除用户缓存
      */
     boolean clearUserCache(String userId);
+
+    /**
+     * 获取用户通勤设置
+     */
+    com.pingo.yuapi.dto.UserCommuteSetup getCommuteSetup(String userId);
+
+    /**
+     * 保存用户通勤设置
+     */
+    boolean saveCommuteSetup(com.pingo.yuapi.dto.CommuteSetupRequest request);
 }

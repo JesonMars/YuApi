@@ -1,6 +1,8 @@
 package com.pingo.yuapi.controller;
 
 import com.pingo.yuapi.common.Result;
+import com.pingo.yuapi.dto.CommuteSetupRequest;
+import com.pingo.yuapi.dto.UserCommuteSetup;
 import com.pingo.yuapi.entity.User;
 import com.pingo.yuapi.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -429,6 +431,36 @@ public class UserController {
             return Result.success(success);
         } catch (Exception e) {
             return Result.error("清除缓存失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户通勤设置
+     */
+    @GetMapping("/commute-setup")
+    public Result<UserCommuteSetup> getCommuteSetup(@RequestParam String userId) {
+        try {
+            UserCommuteSetup setup = userService.getCommuteSetup(userId);
+            return Result.success(setup);
+        } catch (Exception e) {
+            return Result.error("获取通勤设置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存用户通勤设置
+     */
+    @PostMapping("/commute-setup")
+    public Result<Boolean> saveCommuteSetup(@RequestBody CommuteSetupRequest request) {
+        try {
+            if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
+                return Result.error("用户ID不能为空");
+            }
+
+            boolean success = userService.saveCommuteSetup(request);
+            return Result.success(success);
+        } catch (Exception e) {
+            return Result.error("保存通勤设置失败: " + e.getMessage());
         }
     }
 

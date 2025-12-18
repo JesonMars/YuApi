@@ -1,8 +1,11 @@
 package com.pingo.yuapi.entity;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class UserCommuteConfig {
+public class UserCommuteConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private String userId;
     private String timing; // "tonight" or "tomorrow"

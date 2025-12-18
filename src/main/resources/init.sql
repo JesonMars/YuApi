@@ -466,6 +466,7 @@ CREATE TABLE IF NOT EXISTS user_locations (
     user_id VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(300) NOT NULL,
+    city VARCHAR(50) COMMENT '所在城市',
     longitude DECIMAL(10, 7),
     latitude DECIMAL(10, 7),
     type ENUM('home', 'company', 'other') DEFAULT 'other',

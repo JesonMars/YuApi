@@ -1,6 +1,11 @@
 package com.pingo.yuapi.service.impl;
 
+import com.pingo.yuapi.dto.CommuteSetupRequest;
+import com.pingo.yuapi.dto.LocationDTO;
+import com.pingo.yuapi.dto.UserCommuteSetup;
 import com.pingo.yuapi.entity.User;
+import com.pingo.yuapi.entity.UserLocation;
+import com.pingo.yuapi.mapper.UserLocationMapper;
 import com.pingo.yuapi.mapper.UserMapper;
 import com.pingo.yuapi.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +21,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private UserLocationMapper userLocationMapper;
 
     @Override
     public User getUserById(String userId) {
@@ -363,7 +371,107 @@ public class UserServiceImpl implements UserService {
         System.out.println("清除用户缓存: " + userId);
         return true;
     }
-    
+
+    @Override
+    public UserCommuteSetup getCommuteSetup(String userId) {
+        try {
+            // Query home location
+            UserLocation home = userLocationMapper.findByUserIdAndType(userId, "home");
+            // Query company location
+            UserLocation company = userLocationMapper.findByUserIdAndType(userId, "company");
+
+            // If neither home nor company exists, return null
+            if (home == null && company == null) {
+                return null;
+            }
+
+            // Build response DTO
+            UserCommuteSetup setup = new UserCommuteSetup();
+
+            if (home != null) {
+                setup.setHomeAddress(home.getName());
+                setup.setHomeCity(home.getCity());
+                setup.setHomeLocation(new LocationDTO(home.getLongitude(), home.getLatitude()));
+                setup.setSetupTime(home.getCreateTime());
+            }
+
+            if (company != null) {
+                setup.setWorkAddress(company.getName());
+                setup.setWorkCity(company.getCity());
+                setup.setWorkLocation(new LocationDTO(company.getLongitude(), company.getLatitude()));
+                // Use the latest create time
+                if (setup.getSetupTime() == null || company.getCreateTime().isAfter(setup.getSetupTime())) {
+                    setup.setSetupTime(company.getCreateTime());
+                }
+            }
+
+            return setup;
+        } catch (Exception e) {
+            throw new RuntimeException("获取通勤设置失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public boolean saveCommuteSetup(CommuteSetupRequest request) {
+        try {
+            // Save or update home location
+            if (request.getHomeAddress() != null && request.getHomeLocation() != null) {
+                saveOrUpdateUserLocation(
+                    request.getUserId(),
+                    "home",
+                    request.getHomeAddress(),
+                    request.getHomeCity(),
+                    request.getHomeLocation()
+                );
+            }
+
+            // Save or update company location
+            if (request.getWorkAddress() != null && request.getWorkLocation() != null) {
+                saveOrUpdateUserLocation(
+                    request.getUserId(),
+                    "company",
+                    request.getWorkAddress(),
+                    request.getWorkCity(),
+                    request.getWorkLocation()
+                );
+            }
+
+            return true;
+        } catch (Exception e) {
+            throw new RuntimeException("保存通勤设置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Private helper method to save or update a user location
+     */
+    private void saveOrUpdateUserLocation(String userId, String type, String address, String city, LocationDTO location) {
+        // Check if location already exists
+        UserLocation existing = userLocationMapper.findByUserIdAndType(userId, type);
+
+        if (existing != null) {
+            // Update existing location
+            existing.setName(address);
+            existing.setAddress(address);
+            existing.setCity(city);
+            existing.setLongitude(location.getLongitude());
+            existing.setLatitude(location.getLatitude());
+            userLocationMapper.update(existing);
+        } else {
+            // Insert new location
+            UserLocation newLocation = new UserLocation();
+            newLocation.setId(UUID.randomUUID().toString());
+            newLocation.setUserId(userId);
+            newLocation.setName(address);
+            newLocation.setAddress(address);
+            newLocation.setCity(city);
+            newLocation.setLongitude(location.getLongitude());
+            newLocation.setLatitude(location.getLatitude());
+            newLocation.setType(type);
+            userLocationMapper.insert(newLocation);
+        }
+    }
+
     private String getReviewMessage(String status) {
         switch (status) {
             case "pending":
