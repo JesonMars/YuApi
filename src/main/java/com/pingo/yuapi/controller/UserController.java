@@ -34,7 +34,7 @@ public class UserController {
     @GetMapping("/profile")
     public Result<User> getUserProfile() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             User user = userService.getUserById(userId);
             return Result.success(user);
         } catch (Exception e) {
@@ -48,7 +48,7 @@ public class UserController {
     @PutMapping("/profile")
     public Result<Boolean> updateUserProfile(@RequestBody User user) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             user.setId(userId);
             boolean success = userService.updateUser(user);
             return Result.success(success);
@@ -63,7 +63,7 @@ public class UserController {
     @GetMapping("/locations")
     public Result<List<Map<String, Object>>> getUserLocations() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             List<Map<String, Object>> locations = userService.getUserLocations(userId);
             return Result.success(locations);
         } catch (Exception e) {
@@ -77,7 +77,7 @@ public class UserController {
     @PostMapping("/locations")
     public Result<String> saveUserLocation(@RequestBody Map<String, Object> location) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             location.put("userId", userId);
             String locationId = userService.saveUserLocation(location);
             return Result.success(locationId);
@@ -92,7 +92,7 @@ public class UserController {
     @GetMapping("/follows")
     public Result<List<Map<String, Object>>> getFollowedDrivers() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             List<Map<String, Object>> drivers = userService.getFollowedDrivers(userId);
             return Result.success(drivers);
         } catch (Exception e) {
@@ -106,7 +106,7 @@ public class UserController {
     @PostMapping("/follow")
     public Result<Boolean> followDriver(@RequestBody Map<String, String> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String driverId = request.get("driverId");
             boolean success = userService.followDriver(userId, driverId);
             return Result.success(success);
@@ -121,7 +121,7 @@ public class UserController {
     @DeleteMapping("/unfollow")
     public Result<Boolean> unfollowDriver(@RequestBody Map<String, String> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String driverId = request.get("driverId");
             boolean success = userService.unfollowDriver(userId, driverId);
             return Result.success(success);
@@ -136,7 +136,7 @@ public class UserController {
     @GetMapping("/blacklist")
     public Result<List<Map<String, Object>>> getBlacklistedUsers() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             List<Map<String, Object>> blacklistedUsers = userService.getBlacklistedUsers(userId);
             return Result.success(blacklistedUsers);
         } catch (Exception e) {
@@ -150,7 +150,7 @@ public class UserController {
     @PostMapping("/blacklist")
     public Result<Boolean> addToBlacklist(@RequestBody Map<String, String> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String targetUserId = request.get("userId");
             String reason = request.get("reason");
             boolean success = userService.addToBlacklist(userId, targetUserId, reason);
@@ -166,7 +166,7 @@ public class UserController {
     @DeleteMapping("/blacklist")
     public Result<Boolean> removeFromBlacklist(@RequestBody Map<String, String> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String targetUserId = request.get("userId");
             boolean success = userService.removeFromBlacklist(userId, targetUserId);
             return Result.success(success);
@@ -181,7 +181,7 @@ public class UserController {
     @PostMapping("/verification")
     public Result<Boolean> submitDriverVerification(@RequestBody Map<String, Object> verificationData) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             verificationData.put("userId", userId);
             boolean success = userService.submitDriverVerification(verificationData);
             return Result.success(success);
@@ -196,7 +196,7 @@ public class UserController {
     @PostMapping("/avatar")
     public Result<String> uploadAvatar(@RequestParam("avatar") MultipartFile file) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String avatarUrl = userService.uploadAvatar(userId, file);
             return Result.success(avatarUrl);
         } catch (Exception e) {
@@ -211,7 +211,7 @@ public class UserController {
     public Result<String> uploadVerificationFile(@RequestParam("file") MultipartFile file,
             @RequestParam("type") String fileType) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String fileUrl = userService.uploadVerificationFile(userId, file, fileType);
             return Result.success(fileUrl);
         } catch (Exception e) {
@@ -225,7 +225,7 @@ public class UserController {
     @PutMapping("/nickname")
     public Result<Boolean> updateNickname(@RequestBody Map<String, String> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             String nickname = request.get("nickname");
             if (nickname == null || nickname.trim().isEmpty()) {
                 return Result.error("昵称不能为空");
@@ -243,7 +243,7 @@ public class UserController {
     @GetMapping("/stats")
     public Result<Map<String, Object>> getUserStats() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Map<String, Object> stats = userService.getUserStats(userId);
             return Result.success(stats);
         } catch (Exception e) {
@@ -257,7 +257,7 @@ public class UserController {
     @GetMapping("/settings")
     public Result<Map<String, Object>> getUserSettings() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Map<String, Object> settings = userService.getUserSettings(userId);
             return Result.success(settings);
         } catch (Exception e) {
@@ -271,7 +271,7 @@ public class UserController {
     @PutMapping("/settings")
     public Result<Boolean> updateUserSettings(@RequestBody Map<String, Object> settings) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             boolean success = userService.updateUserSettings(userId, settings);
             return Result.success(success);
         } catch (Exception e) {
@@ -285,7 +285,7 @@ public class UserController {
     @GetMapping("/wallet")
     public Result<Map<String, Object>> getUserWallet() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Map<String, Object> walletInfo = userService.getUserWallet(userId);
             return Result.success(walletInfo);
         } catch (Exception e) {
@@ -299,7 +299,7 @@ public class UserController {
     @PostMapping("/wallet/recharge")
     public Result<Boolean> rechargeWallet(@RequestBody Map<String, Object> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Double amount = Double.valueOf(request.get("amount").toString());
             String paymentMethod = (String) request.get("paymentMethod");
 
@@ -320,7 +320,7 @@ public class UserController {
     @PostMapping("/wallet/withdraw")
     public Result<Boolean> withdrawWallet(@RequestBody Map<String, Object> request) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Double amount = Double.valueOf(request.get("amount").toString());
             String bankAccount = (String) request.get("bankAccount");
 
@@ -343,7 +343,7 @@ public class UserController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer limit) {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             List<Map<String, Object>> transactions = userService.getWalletTransactions(userId, page, limit);
             return Result.success(transactions);
         } catch (Exception e) {
@@ -400,7 +400,7 @@ public class UserController {
     @GetMapping("/verification-status")
     public Result<Map<String, Object>> getVerificationStatus() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             Map<String, Object> status = userService.getVerificationStatus(userId);
             return Result.success(status);
         } catch (Exception e) {
@@ -434,7 +434,7 @@ public class UserController {
     @DeleteMapping("/cache")
     public Result<Boolean> clearUserCache() {
         try {
-            String userId = getCurrentUserId();
+            String userId = userService.getCurrentUserId();
             boolean success = userService.clearUserCache(userId);
             return Result.success(success);
         } catch (Exception e) {
@@ -470,30 +470,5 @@ public class UserController {
         } catch (Exception e) {
             return Result.error("保存通勤设置失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 获取当前用户ID（实际项目中应该从JWT token或session中获取）
-     */
-    private String getCurrentUserId() {
-        // 1. 尝试从Token获取
-        String token = request.getHeader("Authorization");
-        if (token != null && token.startsWith("Bearer ")) {
-            String tokenValue = token.substring(7);
-            try {
-                Map<String, Object> userInfo = authService.getUserInfoByToken(tokenValue);
-                return (String) userInfo.get("id");
-            } catch (Exception e) {
-                // Token无效，继续尝试其他方式
-            }
-        }
-
-        // 2. 尝试从Header获取（开发/测试环境或Token过期时的临时方案）
-        String headerUserId = request.getHeader("X-User-Id");
-        if (headerUserId != null && !headerUserId.trim().isEmpty()) {
-            return headerUserId;
-        }
-
-        throw new RuntimeException("未登录");
     }
 }

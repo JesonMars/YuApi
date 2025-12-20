@@ -3,6 +3,11 @@ package com.pingo.yuapi.controller;
 import com.pingo.yuapi.common.Result;
 import com.pingo.yuapi.entity.Trip;
 import com.pingo.yuapi.service.TripService;
+import com.pingo.yuapi.service.UserService;
+
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,12 +24,16 @@ public class TripController {
     @Autowired
     private TripService tripService;
 
+    @Resource
+    private UserService userService;
+
     /**
      * 获取行程列表
      */
     @GetMapping("/list")
     public Result<List<Trip>> getTripList(@RequestParam Map<String, Object> params) {
         try {
+            params.put("currentUserId", userService.getCurrentUserId());
             List<Trip> trips = tripService.getTripList(params);
             return Result.success(trips);
         } catch (Exception e) {
@@ -42,7 +51,8 @@ public class TripController {
             LocalDate today = LocalDate.now();
             params.put("date", today.toString());
             params.put("afterCurrentTime", LocalDateTime.now());
-            
+
+            params.put("currentUserId", userService.getCurrentUserId());
             List<Trip> trips = tripService.getTodayTrips(params);
             return Result.success(trips);
         } catch (Exception e) {
@@ -151,8 +161,8 @@ public class TripController {
      */
     @GetMapping("/user/{userId}")
     public Result<List<Trip>> getUserTrips(@PathVariable String userId,
-                                          @RequestParam(defaultValue = "1") Integer page,
-                                          @RequestParam(defaultValue = "10") Integer limit) {
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer limit) {
         try {
             List<Trip> trips = tripService.getUserTrips(userId, page, limit);
             return Result.success(trips);

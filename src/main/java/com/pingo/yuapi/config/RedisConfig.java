@@ -8,10 +8,14 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.SocketOptions;
 import io.lettuce.core.protocol.ProtocolVersion;
-import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisPassword;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -25,23 +29,52 @@ import java.time.Duration;
 @Configuration
 public class RedisConfig {
 
+    @Value("${spring.redis.host:localhost}")
+    private String redisHost;
+
+    @Value("${spring.redis.port:6379}")
+    private int redisPort;
+
+    @Value("${spring.redis.password:}")
+    private String redisPassword;
+
+    @Value("${spring.redis.database:0}")
+    private int redisDatabase;
+
     /**
-     * 配置Lettuce客户端
+     * 配置Redis连接工厂
      * 解决Redis 7.x RESP3协议认证问题
      */
     @Bean
-    public LettuceClientConfigurationBuilderCustomizer lettuceClientConfigurationBuilderCustomizer() {
-        return clientConfigurationBuilder -> {
-            ClientOptions clientOptions = ClientOptions.builder()
-                    // 使用RESP2协议，避免RESP3的认证问题
-                    .protocolVersion(ProtocolVersion.RESP2)
-                    .socketOptions(SocketOptions.builder()
-                            .connectTimeout(Duration.ofSeconds(10))
-                            .keepAlive(true)
-                            .build())
-                    .build();
-            clientConfigurationBuilder.clientOptions(clientOptions);
-        };
+    public LettuceConnectionFactory redisConnectionFactory() {
+        // Redis 单机配置
+        RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
+        redisConfig.setHostName(redisHost);
+        redisConfig.setPort(redisPort);
+        redisConfig.setDatabase(redisDatabase);
+
+        // 设置密码
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            redisConfig.setPassword(RedisPassword.of(redisPassword));
+        }
+
+        // Lettuce 客户端配置 - 使用RESP2协议
+        ClientOptions clientOptions = ClientOptions.builder()
+                .protocolVersion(ProtocolVersion.RESP2)
+                .socketOptions(SocketOptions.builder()
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .keepAlive(true)
+                        .build())
+                .build();
+
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .clientOptions(clientOptions)
+                .commandTimeout(Duration.ofSeconds(5))
+                .build();
+
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(redisConfig, clientConfig);
+        factory.afterPropertiesSet();
+        return factory;
     }
 
     /**

@@ -2,10 +2,14 @@ package com.pingo.yuapi.service.impl;
 
 import com.pingo.yuapi.entity.Trip;
 import com.pingo.yuapi.entity.TripDetails;
+import com.pingo.yuapi.entity.User;
 import com.pingo.yuapi.entity.UserCommuteConfig;
+import com.pingo.yuapi.entity.UserLocation;
 import com.pingo.yuapi.mapper.TripMapper;
 import com.pingo.yuapi.mapper.TripDetailsMapper;
+import com.pingo.yuapi.mapper.UserMapper;
 import com.pingo.yuapi.mapper.UserCommuteConfigMapper;
+import com.pingo.yuapi.mapper.UserLocationMapper;
 import com.pingo.yuapi.service.TripService;
 import com.pingo.yuapi.utils.DateUtils;
 import com.pingo.yuapi.utils.IdGeneratorUtils;
@@ -32,6 +36,12 @@ public class TripServiceImpl implements TripService {
 
     @Autowired
     private UserCommuteConfigMapper userCommuteConfigMapper;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private UserLocationMapper userLocationMapper;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -63,7 +73,10 @@ public class TripServiceImpl implements TripService {
         }
 
         // 应用额外的筛选逻辑（地铁站、关注、距离等）
-        return filterTripsAdditional(trips, params);
+        logger.info("getTripList() - 筛选前行程数量: {}, 筛选参数: {}", trips.size(), params);
+        List<Trip> filteredTrips = filterTripsAdditional(trips, params);
+        logger.info("getTripList() - 筛选后行程数量: {}", filteredTrips.size());
+        return filteredTrips;
     }
 
     @Override
@@ -468,23 +481,54 @@ public class TripServiceImpl implements TripService {
             return trips;
         }
 
-        // 用户家和公司的坐标（这里使用固定坐标，实际应该从用户设置中获取）
-        double homeLat = 39.5283; // 荣盛阿尔卡迪亚·花语城纬度
-        double homeLng = 116.7428; // 荣盛阿尔卡迪亚·花语城经度
-        double companyLat = 39.9081; // 国贸CBD纬度
-        double companyLng = 116.4609; // 国贸CBD经度
+        // 从用户设置中获取家和公司的坐标
+        final String currentUserId = (String) params.get("currentUserId");
+        final Double[] homeCoords = new Double[2]; // [0]=lat, [1]=lng
+        final Double[] companyCoords = new Double[2]; // [0]=lat, [1]=lng
+
+        if (currentUserId != null) {
+            try {
+                // 查询用户的家位置
+                UserLocation homeLocation = userLocationMapper.findByUserIdAndType(currentUserId, "home");
+                if (homeLocation != null && homeLocation.getLatitude() != null && homeLocation.getLongitude() != null) {
+                    homeCoords[0] = homeLocation.getLatitude();
+                    homeCoords[1] = homeLocation.getLongitude();
+                    logger.info("用户 {} 的家位置: {}, 坐标({}, {})",
+                            currentUserId, homeLocation.getName(), homeCoords[0], homeCoords[1]);
+                } else {
+                    logger.warn("用户 {} 未设置家位置", currentUserId);
+                }
+
+                // 查询用户的公司位置
+                UserLocation companyLocation = userLocationMapper.findByUserIdAndType(currentUserId, "company");
+                if (companyLocation != null && companyLocation.getLatitude() != null
+                        && companyLocation.getLongitude() != null) {
+                    companyCoords[0] = companyLocation.getLatitude();
+                    companyCoords[1] = companyLocation.getLongitude();
+                    logger.info("用户 {} 的公司位置: {}, 坐标({}, {})",
+                            currentUserId, companyLocation.getName(), companyCoords[0], companyCoords[1]);
+                } else {
+                    logger.warn("用户 {} 未设置公司位置", currentUserId);
+                }
+            } catch (Exception e) {
+                logger.warn("获取用户位置信息失败: userId={}, error={}", currentUserId, e.getMessage());
+            }
+        }
 
         // 获取已关注的用户列表（如果需要）
         Set<String> followedUserIds = null;
         Object followsOnlyObj = params.get("followsOnly");
-        if (followsOnlyObj != null
-                && (Boolean.parseBoolean(followsOnlyObj.toString()) || "true".equals(followsOnlyObj.toString()))) {
-            followedUserIds = getFollowedUserIds((String) params.get("currentUserId"));
+        boolean followsOnly = false;
+        if (followsOnlyObj != null) {
+            followsOnly = Boolean.parseBoolean(followsOnlyObj + "");
+        }
+        if (followsOnly) {
+            followedUserIds = getFollowedUserIds(currentUserId);
         }
 
         final Set<String> finalFollowedUserIds = followedUserIds;
-
-        return trips.stream()
+        final boolean finalFollowsOnly = followsOnly;
+        List<Trip> filteredTrips = trips.stream()
                 .filter(trip -> {
                     // 按出发时间段过滤
                     String timeRange = (String) params.get("departureTimeRange");
@@ -500,51 +544,72 @@ public class TripServiceImpl implements TripService {
                         }
                     }
 
-                    // 家附近距离筛选
+                    // 家附近距离筛选（只检查起点距离）
+                    // 只有当用户设置了家位置时才进行距离筛选
                     Object homeDistanceObj = params.get("homeDistance");
                     if (homeDistanceObj != null) {
-                        try {
-                            int homeDistance = homeDistanceObj instanceof String
-                                    ? Integer.parseInt((String) homeDistanceObj)
-                                    : (Integer) homeDistanceObj;
-                            if (homeDistance > 0 && trip.getStartLatitude() != null
-                                    && trip.getStartLongitude() != null) {
-                                double distance = calculateDistance(homeLat, homeLng,
-                                        trip.getStartLatitude(), trip.getStartLongitude());
-                                if (distance > homeDistance) {
-                                    return false;
+                        if (homeCoords[0] == null || homeCoords[1] == null) {
+                            // 用户未设置家位置，跳过距离筛选（不过滤）
+                            logger.info("家附近距离筛选: 用户未设置家位置，跳过筛选");
+                        } else {
+                            try {
+                                int homeDistance = homeDistanceObj instanceof String
+                                        ? Integer.parseInt((String) homeDistanceObj)
+                                        : (Integer) homeDistanceObj;
+                                if (homeDistance > 0 && trip.getStartLatitude() != null
+                                        && trip.getStartLongitude() != null) {
+                                    double distance = calculateDistance(homeCoords[0], homeCoords[1],
+                                            trip.getStartLatitude(), trip.getStartLongitude());
+                                    if (distance > homeDistance) {
+                                        logger.info("家附近距离筛选: 行程 {} 被过滤 - 起点:{} 距离家{}米, 超过{}米",
+                                                trip.getId(), trip.getStartLocation(), (int) distance, homeDistance);
+                                        return false;
+                                    } else {
+                                        logger.info("家附近距离筛选: 行程 {} 通过 - 起点:{} 距离家{}米",
+                                                trip.getId(), trip.getStartLocation(), (int) distance);
+                                    }
                                 }
+                            } catch (NumberFormatException e) {
+                                // 忽略无法解析的距离参数
                             }
-                        } catch (NumberFormatException e) {
-                            // 忽略无法解析的距离参数
                         }
                     }
 
-                    // 公司附近距离筛选
+                    // 公司附近距离筛选（只检查起点距离）
+                    // 只有当用户设置了公司位置时才进行距离筛选
                     Object companyDistanceObj = params.get("companyDistance");
                     if (companyDistanceObj != null) {
-                        try {
-                            int companyDistance = companyDistanceObj instanceof String
-                                    ? Integer.parseInt((String) companyDistanceObj)
-                                    : (Integer) companyDistanceObj;
-                            if (companyDistance > 0 && trip.getStartLatitude() != null
-                                    && trip.getStartLongitude() != null) {
-                                double distance = calculateDistance(companyLat, companyLng,
-                                        trip.getStartLatitude(), trip.getStartLongitude());
-                                if (distance > companyDistance) {
-                                    return false;
+                        if (companyCoords[0] == null || companyCoords[1] == null) {
+                            // 用户未设置公司位置，跳过距离筛选（不过滤）
+                            logger.info("公司附近距离筛选: 用户未设置公司位置，跳过筛选");
+                        } else {
+                            try {
+                                int companyDistance = companyDistanceObj instanceof String
+                                        ? Integer.parseInt((String) companyDistanceObj)
+                                        : (Integer) companyDistanceObj;
+                                if (companyDistance > 0 && trip.getStartLatitude() != null
+                                        && trip.getStartLongitude() != null) {
+                                    double distance = calculateDistance(companyCoords[0], companyCoords[1],
+                                            trip.getStartLatitude(), trip.getStartLongitude());
+                                    if (distance > companyDistance) {
+                                        logger.info("公司附近距离筛选: 行程 {} 被过滤 - 起点:{} 距离公司{}米, 超过{}米",
+                                                trip.getId(), trip.getStartLocation(), (int) distance, companyDistance);
+                                        return false;
+                                    } else {
+                                        logger.info("公司附近距离筛选: 行程 {} 通过 - 起点:{} 距离公司{}米",
+                                                trip.getId(), trip.getStartLocation(), (int) distance);
+                                    }
                                 }
+                            } catch (NumberFormatException e) {
+                                // 忽略无法解析的距离参数
                             }
-                        } catch (NumberFormatException e) {
-                            // 忽略无法解析的距离参数
                         }
                     }
 
                     // 关注筛选
-                    if (finalFollowedUserIds != null && !finalFollowedUserIds.isEmpty()) {
-                        if (!finalFollowedUserIds.contains(trip.getUserId())) {
-                            return false;
-                        }
+                    if (finalFollowsOnly &&
+                            (finalFollowedUserIds == null || !finalFollowedUserIds.contains(trip.getUserId()))) {
+                        return false;
                     }
 
                     // 地铁站筛选
@@ -578,6 +643,8 @@ public class TripServiceImpl implements TripService {
                         }
 
                         if (!foundMatch) {
+                            logger.debug("地铁站筛选: 行程 {} 被过滤 - 起点:{}, 终点:{}, 需要包含地铁站:{}",
+                                    trip.getId(), startLocation, endLocation, subwayStations);
                             return false;
                         }
                     }
@@ -585,6 +652,35 @@ public class TripServiceImpl implements TripService {
                     return true;
                 })
                 .collect(ArrayList::new, (list, trip) -> list.add(trip), ArrayList::addAll);
+
+        // 填充用户信息（司机姓名和车辆信息）
+        filteredTrips.forEach(trip -> {
+            try {
+                User user = userMapper.findById(trip.getUserId());
+                if (user != null) {
+                    trip.setDriverName(user.getName());
+                    // 组合车辆信息：品牌+颜色
+                    if (user.getVehicleBrand() != null || user.getVehicleColor() != null) {
+                        StringBuilder carInfo = new StringBuilder();
+                        if (user.getVehicleBrand() != null) {
+                            carInfo.append(user.getVehicleBrand());
+                        }
+                        if (user.getVehicleColor() != null) {
+                            if (carInfo.length() > 0) {
+                                carInfo.append(" ");
+                            }
+                            carInfo.append(user.getVehicleColor());
+                        }
+                        trip.setCarInfo(carInfo.toString());
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("填充行程用户信息失败: tripId={}, userId={}, error={}",
+                        trip.getId(), trip.getUserId(), e.getMessage());
+            }
+        });
+
+        return filteredTrips;
     }
 
     /**

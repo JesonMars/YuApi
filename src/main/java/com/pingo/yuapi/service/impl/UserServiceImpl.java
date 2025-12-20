@@ -7,6 +7,7 @@ import com.pingo.yuapi.entity.User;
 import com.pingo.yuapi.entity.UserLocation;
 import com.pingo.yuapi.mapper.UserLocationMapper;
 import com.pingo.yuapi.mapper.UserMapper;
+import com.pingo.yuapi.service.AuthService;
 import com.pingo.yuapi.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 import com.pingo.yuapi.utils.IdGeneratorUtils;
 
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+
 @Service
 public class UserServiceImpl implements UserService {
 
@@ -25,6 +29,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserLocationMapper userLocationMapper;
+
+    @Resource
+    private HttpServletRequest request;
+
+    @Resource
+    private AuthService authService;
 
     @Override
     public User getUserById(String userId) {
@@ -438,6 +448,32 @@ public class UserServiceImpl implements UserService {
         } catch (Exception e) {
             throw new RuntimeException("保存通勤设置失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 获取当前用户ID（实际项目中应该从JWT token或session中获取）
+     */
+    @Override
+    public String getCurrentUserId() {
+        // 1. 尝试从Token获取
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            String tokenValue = token.substring(7);
+            try {
+                Map<String, Object> userInfo = authService.getUserInfoByToken(tokenValue);
+                return (String) userInfo.get("id");
+            } catch (Exception e) {
+                // Token无效，继续尝试其他方式
+            }
+        }
+
+        // 2. 尝试从Header获取（开发/测试环境或Token过期时的临时方案）
+        String headerUserId = request.getHeader("X-User-Id");
+        if (headerUserId != null && !headerUserId.trim().isEmpty()) {
+            return headerUserId;
+        }
+
+        throw new RuntimeException("未登录");
     }
 
     /**

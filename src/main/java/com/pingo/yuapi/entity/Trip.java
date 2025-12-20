@@ -38,6 +38,10 @@ public class Trip {
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
+    // 关联用户信息（不存储在数据库，仅用于返回给前端）
+    private transient String driverName; // 司机姓名
+    private transient String carInfo;    // 车辆信息（品牌+颜色）
+
     public Trip() {}
 
     public String getId() {
@@ -190,5 +194,21 @@ public class Trip {
 
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public String getDriverName() {
+        return driverName;
+    }
+
+    public void setDriverName(String driverName) {
+        this.driverName = driverName;
+    }
+
+    public String getCarInfo() {
+        return carInfo;
+    }
+
+    public void setCarInfo(String carInfo) {
+        this.carInfo = carInfo;
     }
 }
