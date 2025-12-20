@@ -207,12 +207,27 @@ public class TripServiceImpl implements TripService {
         // 途经点（从前端获取，或从配置加载）
         String pickupPoints = (String) tripData.get("pickupPoint");
         String dropoffPoints = (String) tripData.get("dropoffPoint");
+
+        // 获取JSON格式的途经点（包含经纬度）
+        String pickupPointsJson = (String) tripData.get("pickupPointsJson");
+        String dropoffPointsJson = (String) tripData.get("dropoffPointsJson");
+
         if (pickupPoints == null && config.getPickupPoints() != null) {
             pickupPoints = config.getPickupPoints();
         }
         if (dropoffPoints == null && config.getDropoffPoints() != null) {
             dropoffPoints = config.getDropoffPoints();
         }
+
+        // TripDetails 目前还是存储简单的字符串（或者也可以存JSON，视需求而定，这里保持原样或存JSON）
+        // 如果 TripDetails 的 pickupPoints 字段定义为 String，存 JSON 也是可以的。
+        // 但前端显示可能依赖于这个字段的格式。
+        // 假设 TripDetails 仍然存储显示的名称字符串（为了兼容旧逻辑），或者我们可以存 JSON。
+        // 鉴于 TripDetails 是历史记录，存 JSON 更好。但为了不破坏现有显示逻辑（如果前端直接显示这个字段），
+        // 我们先保持存名称字符串，或者确认前端如何使用。
+        // 实际上，TripDetails 的 pickupPoints 字段在前端展示时，如果是 JSON 字符串，前端可能需要解析。
+        // 暂时保持存名称字符串给 TripDetails，但更新 UserCommuteConfig 时使用 JSON。
+
         details.setPickupPoints(pickupPoints);
         details.setDropoffPoints(dropoffPoints);
 
@@ -245,8 +260,20 @@ public class TripServiceImpl implements TripService {
         config.setDefaultPricePerSeat(priceFen);
         config.setDefaultNotes(notes);
         config.setDefaultRecurringType(recurringType);
-        config.setPickupPoints(pickupPoints);
-        config.setDropoffPoints(dropoffPoints);
+
+        // 优先使用 JSON 更新配置
+        if (pickupPointsJson != null && !pickupPointsJson.isEmpty()) {
+            config.setPickupPoints(pickupPointsJson);
+        } else if (config.getPickupPoints() == null) {
+            // 只有在没有配置且没有JSON时，才使用简单字符串（兼容旧数据）
+            config.setPickupPoints(pickupPoints);
+        }
+
+        if (dropoffPointsJson != null && !dropoffPointsJson.isEmpty()) {
+            config.setDropoffPoints(dropoffPointsJson);
+        } else if (config.getDropoffPoints() == null) {
+            config.setDropoffPoints(dropoffPoints);
+        }
 
         userCommuteConfigMapper.insertOrUpdate(config);
 

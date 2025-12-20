@@ -42,7 +42,6 @@ public interface UserCommuteConfigMapper {
                         "default_recurring_type = #{defaultRecurringType}, " +
                         "default_notes = #{defaultNotes}, " +
                         "default_passenger_count = #{defaultPassengerCount}, " +
-                        "default_passenger_count = #{defaultPassengerCount}, " +
                         "default_offer_price = #{defaultOfferPrice} " +
                         "WHERE user_id = #{userId} AND timing = #{timing}")
         int update(UserCommuteConfig config);

@@ -19,6 +19,16 @@ spring:
     database: 0
     password: Redis@123
     timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+      shutdown-timeout: 100ms
+    client-type: lettuce
+    # 解决 Redis 7.x RESP3 协议认证问题
+    client-name: yuapi
     
   profiles:
     active: dev
