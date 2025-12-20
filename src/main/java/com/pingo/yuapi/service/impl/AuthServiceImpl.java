@@ -3,17 +3,19 @@ package com.pingo.yuapi.service.impl;
 import com.pingo.yuapi.service.AuthService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import com.pingo.yuapi.utils.IdGeneratorUtils;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
     // 模拟token存储
     private Map<String, Map<String, Object>> tokenStorage = new HashMap<>();
-    
+
     // 模拟用户存储
     private Map<String, Map<String, Object>> userStorage = new HashMap<>();
-    
+
     // 模拟refresh token存储
     private Map<String, String> refreshTokenStorage = new HashMap<>();
 
@@ -21,23 +23,23 @@ public class AuthServiceImpl implements AuthService {
     public Map<String, Object> wechatLogin(Map<String, Object> loginData) {
         String code = (String) loginData.get("code");
         Map<String, Object> userInfo = (Map<String, Object>) loginData.get("userInfo");
-        
+
         // 模拟微信API调用，获取openid和session_key
         String openid = "mock_openid_" + code.substring(0, Math.min(8, code.length()));
-        String sessionKey = "mock_session_key_" + UUID.randomUUID().toString().substring(0, 8);
-        
+        String sessionKey = "mock_session_key_" + IdGeneratorUtils.generateShortId();
+
         // 检查用户是否已存在
         String userId = findUserByOpenid(openid);
         boolean isFirstLogin = userId == null;
-        
+
         if (isFirstLogin) {
             // 创建新用户
-            userId = "user_" + UUID.randomUUID().toString().substring(0, 8);
+            userId = "user_" + IdGeneratorUtils.generateShortId();
             Map<String, Object> userData = new HashMap<>();
             userData.put("id", userId);
             userData.put("openid", openid);
             userData.put("sessionKey", sessionKey);
-            
+
             if (userInfo != null) {
                 userData.put("nickName", userInfo.get("nickName"));
                 userData.put("avatarUrl", userInfo.get("avatarUrl"));
@@ -46,11 +48,11 @@ public class AuthServiceImpl implements AuthService {
                 userData.put("province", userInfo.get("province"));
                 userData.put("city", userInfo.get("city"));
             }
-            
+
             userData.put("phone", null);
             userData.put("isComplete", false);
-            userData.put("createTime", new Date());
-            
+            userData.put("createTime", LocalDateTime.now());
+
             userStorage.put(userId, userData);
         } else {
             // 更新现有用户信息
@@ -61,28 +63,28 @@ public class AuthServiceImpl implements AuthService {
             }
             userData.put("sessionKey", sessionKey);
         }
-        
+
         // 生成token
         String token = generateToken(userId);
         String refreshToken = generateRefreshToken(userId);
-        
+
         // 存储token信息
         Map<String, Object> tokenData = new HashMap<>();
         tokenData.put("userId", userId);
         tokenData.put("openid", openid);
-        tokenData.put("createTime", new Date());
-        tokenData.put("expiresAt", new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)); // 7天过期
-        
+        tokenData.put("createTime", LocalDateTime.now());
+        tokenData.put("expiresAt", LocalDateTime.now().plusDays(7)); // 7天过期
+
         tokenStorage.put(token, tokenData);
         refreshTokenStorage.put(refreshToken, userId);
-        
+
         // 准备返回数据
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
         result.put("refreshToken", refreshToken);
         result.put("userId", userId);
         result.put("isFirstLogin", isFirstLogin);
-        
+
         Map<String, Object> userResult = new HashMap<>();
         Map<String, Object> userData = userStorage.get(userId);
         userResult.put("id", userId);
@@ -90,9 +92,9 @@ public class AuthServiceImpl implements AuthService {
         userResult.put("avatarUrl", userData.get("avatarUrl"));
         userResult.put("phone", userData.get("phone"));
         userResult.put("isComplete", userData.get("phone") != null);
-        
+
         result.put("userInfo", userResult);
-        
+
         return result;
     }
 
@@ -102,20 +104,20 @@ public class AuthServiceImpl implements AuthService {
         if (tokenData == null) {
             throw new RuntimeException("Token无效");
         }
-        
+
         String userId = (String) tokenData.get("userId");
         String encryptedData = phoneData.get("encryptedData");
         String iv = phoneData.get("iv");
-        
+
         // 模拟解密手机号（实际项目中需要使用微信提供的解密方法）
         String phoneNumber = mockDecryptPhoneNumber(encryptedData, iv);
-        
+
         // 更新用户手机号
         Map<String, Object> userData = userStorage.get(userId);
         userData.put("phone", phoneNumber);
         userData.put("isComplete", true);
-        userData.put("updateTime", new Date());
-        
+        userData.put("updateTime", LocalDateTime.now());
+
         return true;
     }
 
@@ -125,9 +127,9 @@ public class AuthServiceImpl implements AuthService {
         if (tokenData == null) {
             return false;
         }
-        
-        Date expiresAt = (Date) tokenData.get("expiresAt");
-        return expiresAt.after(new Date());
+
+        LocalDateTime expiresAt = (LocalDateTime) tokenData.get("expiresAt");
+        return expiresAt.isAfter(LocalDateTime.now());
     }
 
     @Override
@@ -136,18 +138,18 @@ public class AuthServiceImpl implements AuthService {
         if (userId == null) {
             throw new RuntimeException("Refresh token无效");
         }
-        
+
         // 生成新的token
         String newToken = generateToken(userId);
-        
+
         // 存储新token信息
         Map<String, Object> tokenData = new HashMap<>();
         tokenData.put("userId", userId);
-        tokenData.put("createTime", new Date());
-        tokenData.put("expiresAt", new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000));
-        
+        tokenData.put("createTime", LocalDateTime.now());
+        tokenData.put("expiresAt", LocalDateTime.now().plusDays(7));
+
         tokenStorage.put(newToken, tokenData);
-        
+
         return newToken;
     }
 
@@ -163,14 +165,14 @@ public class AuthServiceImpl implements AuthService {
         if (tokenData == null) {
             throw new RuntimeException("Token无效");
         }
-        
+
         String userId = (String) tokenData.get("userId");
         Map<String, Object> userData = userStorage.get(userId);
-        
+
         if (userData == null) {
             throw new RuntimeException("用户不存在");
         }
-        
+
         Map<String, Object> result = new HashMap<>();
         result.put("id", userId);
         result.put("nickName", userData.get("nickName"));
@@ -181,7 +183,7 @@ public class AuthServiceImpl implements AuthService {
         result.put("province", userData.get("province"));
         result.put("city", userData.get("city"));
         result.put("isComplete", userData.get("phone") != null);
-        
+
         return result;
     }
 
@@ -201,16 +203,16 @@ public class AuthServiceImpl implements AuthService {
      * 生成token
      */
     private String generateToken(String userId) {
-        return "token_" + userId + "_" + System.currentTimeMillis() + "_" + 
-               UUID.randomUUID().toString().substring(0, 8);
+        return "token_" + userId + "_" + System.currentTimeMillis() + "_" +
+                IdGeneratorUtils.generateShortId();
     }
 
     /**
      * 生成refresh token
      */
     private String generateRefreshToken(String userId) {
-        return "refresh_" + userId + "_" + System.currentTimeMillis() + "_" + 
-               UUID.randomUUID().toString().substring(0, 8);
+        return "refresh_" + userId + "_" + System.currentTimeMillis() + "_" +
+                IdGeneratorUtils.generateShortId();
     }
 
     /**

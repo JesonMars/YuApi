@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import com.pingo.yuapi.utils.IdGeneratorUtils;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -68,7 +68,7 @@ public class UserCommuteConfigServiceImpl implements UserCommuteConfigService {
                 success = mapper.update(config) > 0;
             } else {
                 if (config.getId() == null) {
-                    config.setId(UUID.randomUUID().toString());
+                    config.setId(IdGeneratorUtils.generateId());
                 }
                 success = mapper.insert(config) > 0;
             }
@@ -82,7 +82,7 @@ public class UserCommuteConfigServiceImpl implements UserCommuteConfigService {
 
         } catch (Exception e) {
             logger.error("保存途经点配置失败: userId={}, timing={}, error={}",
-                config.getUserId(), config.getTiming(), e.getMessage(), e);
+                    config.getUserId(), config.getTiming(), e.getMessage(), e);
             return false;
         }
     }
@@ -108,7 +108,7 @@ public class UserCommuteConfigServiceImpl implements UserCommuteConfigService {
 
         } catch (Exception e) {
             logger.error("更新途经点配置缓存失败: userId={}, timing={}, error={}",
-                config.getUserId(), config.getTiming(), e.getMessage(), e);
+                    config.getUserId(), config.getTiming(), e.getMessage(), e);
             // 缓存更新失败不影响主流程
         }
     }

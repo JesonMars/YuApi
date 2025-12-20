@@ -21,16 +21,17 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.binary.Base64;
+import com.pingo.yuapi.utils.IdGeneratorUtils;
 
 @Service
 public class WechatServiceImpl implements WechatService {
 
     @Autowired
     private UserMapper userMapper;
-    
+
     @Autowired
     private WechatUserMapper wechatUserMapper;
-    
+
     @Autowired
     private UserService userService;
 
@@ -44,35 +45,33 @@ public class WechatServiceImpl implements WechatService {
     @Value("${wechat.miniprogram.secret:your-secret-key}")
     private String appSecret;
 
-
     @Override
     public Map<String, Object> wechatLogin(String code) {
         Map<String, Object> result = new HashMap<>();
-        
+
         try {
             // 调用微信API获取session_key和openid
             String url = String.format(
-                "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
-                appId, appSecret, code
-            );
-            
+                    "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+                    appId, appSecret, code);
+
             // 调用微信官方API获取session_key和openid
             Map<String, Object> wechatResponse = callWechatAPI(url, "GET", null);
-            
+
             if (wechatResponse.get("errcode") != null && !Integer.valueOf(0).equals(wechatResponse.get("errcode"))) {
                 throw new RuntimeException("微信登录失败: " + wechatResponse.get("errmsg"));
             }
-            
+
             String openid = (String) wechatResponse.get("openid");
             String sessionKey = (String) wechatResponse.get("session_key");
             String unionid = (String) wechatResponse.get("unionid");
-            
+
             // 检查或更新微信用户记录
             WechatUser existingWechatUser = wechatUserMapper.findByOpenid(openid);
             if (existingWechatUser == null) {
                 // 创建新的微信用户记录
                 WechatUser wechatUser = new WechatUser();
-                wechatUser.setId(UUID.randomUUID().toString());
+                wechatUser.setId(IdGeneratorUtils.generateId());
                 wechatUser.setOpenid(openid);
                 wechatUser.setUnionid(unionid);
                 wechatUser.setSessionKey(sessionKey);
@@ -81,24 +80,24 @@ public class WechatServiceImpl implements WechatService {
                 // 更新session_key
                 wechatUserMapper.updateSessionKey(openid, sessionKey);
             }
-            
+
             // 检查用户是否已存在
             User existingUser = userMapper.findByWechatOpenid(openid);
             boolean isNewUser = (existingUser == null);
-            
+
             result.put("openid", openid);
             result.put("sessionKey", sessionKey);
             result.put("unionid", unionid);
             result.put("isNewUser", isNewUser);
-            
+
             if (!isNewUser) {
                 result.put("userInfo", existingUser);
             }
-            
+
         } catch (Exception e) {
             throw new RuntimeException("微信登录失败: " + e.getMessage());
         }
-        
+
         return result;
     }
 
@@ -139,13 +138,13 @@ public class WechatServiceImpl implements WechatService {
                 wechatUser.setLanguage((String) userInfo.get("language"));
                 wechatUserMapper.updateUserInfo(wechatUser);
             }
-            
+
             // 创建或更新用户信息
             User user = userMapper.findByWechatOpenid(openid);
             if (user == null) {
                 // 创建新用户
                 user = new User();
-                user.setId(UUID.randomUUID().toString());
+                user.setId(IdGeneratorUtils.generateId());
                 user.setName((String) userInfo.get("nickName"));
                 user.setAvatar((String) userInfo.get("avatarUrl"));
                 user.setWechatOpenid(openid);
@@ -161,12 +160,12 @@ public class WechatServiceImpl implements WechatService {
                 user.setAvatar((String) userInfo.get("avatarUrl"));
                 userMapper.updateUser(user);
             }
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("userId", user.getId());
             result.put("userInfo", convertUserToMap(user));
             result.put("success", true);
-            
+
             return result;
         } catch (Exception e) {
             throw new RuntimeException("保存用户信息失败: " + e.getMessage());
@@ -179,7 +178,7 @@ public class WechatServiceImpl implements WechatService {
             String phoneNumber = (String) phoneInfo.get("phoneNumber");
             String purePhoneNumber = (String) phoneInfo.get("purePhoneNumber");
             String countryCode = (String) phoneInfo.get("countryCode");
-            
+
             // 更新用户手机号
             WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
             if (wechatUser != null) {
@@ -189,15 +188,15 @@ public class WechatServiceImpl implements WechatService {
                     user.setPhone(phoneNumber);
                     userMapper.updateUser(user);
                 }
-                
+
                 // 更新微信用户的手机号
                 wechatUserMapper.updatePhoneNumber(openid, phoneNumber);
             }
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("phoneNumber", phoneNumber);
             result.put("success", true);
-            
+
             return result;
         } catch (Exception e) {
             throw new RuntimeException("更新手机号失败: " + e.getMessage());
@@ -231,7 +230,7 @@ public class WechatServiceImpl implements WechatService {
         Map<String, Object> status = new HashMap<>();
         WechatUser wechatUser = wechatUserMapper.findByOpenid(openid);
         User user = userMapper.findByWechatOpenid(openid);
-        
+
         if (wechatUser != null) {
             status.put("hasUserInfo", wechatUser.getNickName() != null);
             status.put("hasPhone", wechatUser.getPhoneNumber() != null);
@@ -241,13 +240,13 @@ public class WechatServiceImpl implements WechatService {
             status.put("hasUserInfo", false);
             status.put("hasPhone", false);
         }
-        
+
         if (user != null) {
             status.put("firstSetupCompleted", user.getFirstSetupCompleted());
         } else {
             status.put("firstSetupCompleted", false);
         }
-        
+
         status.put("openid", openid);
         return status;
     }
@@ -256,10 +255,9 @@ public class WechatServiceImpl implements WechatService {
     public String getAccessToken() {
         try {
             String url = String.format(
-                "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
-                appId, appSecret
-            );
-            
+                    "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+                    appId, appSecret);
+
             Map<String, Object> response = callWechatAPI(url, "GET", null);
             if (response.get("errcode") != null && !Integer.valueOf(0).equals(response.get("errcode"))) {
                 throw new RuntimeException("获取AccessToken失败: " + response.get("errmsg"));
@@ -275,19 +273,18 @@ public class WechatServiceImpl implements WechatService {
         try {
             String accessToken = getAccessToken();
             String url = String.format(
-                "https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=%s",
-                accessToken
-            );
-            
+                    "https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=%s",
+                    accessToken);
+
             Map<String, Object> data = new HashMap<>();
             data.put("scene", scene);
             if (page != null) {
                 data.put("page", page);
             }
-            
+
             // 调用微信API生成二维码，返回二进制数据
             byte[] qrCodeBytes = callWechatBinaryAPI(url, data);
-            
+
             // 保存二维码到存储并返回可访问的URL
             return saveQRCodeToStorage(qrCodeBytes, scene);
         } catch (Exception e) {
@@ -300,10 +297,9 @@ public class WechatServiceImpl implements WechatService {
         try {
             String accessToken = getAccessToken();
             String url = String.format(
-                "https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=%s",
-                accessToken
-            );
-            
+                    "https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=%s",
+                    accessToken);
+
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("touser", openid);
             requestData.put("template_id", templateId);
@@ -311,7 +307,7 @@ public class WechatServiceImpl implements WechatService {
             if (page != null) {
                 requestData.put("page", page);
             }
-            
+
             Map<String, Object> response = callWechatAPI(url, "POST", requestData);
             return Integer.valueOf(0).equals(response.get("errcode"));
         } catch (Exception e) {
@@ -338,19 +334,19 @@ public class WechatServiceImpl implements WechatService {
         try {
             System.out.println("调用微信API: " + url);
             String response;
-            
+
             if ("GET".equals(method)) {
                 response = restTemplate.getForObject(url, String.class);
             } else {
                 response = restTemplate.postForObject(url, data, String.class);
             }
-            
+
             System.out.println("微信API响应: " + response);
-            
+
             if (response == null || response.trim().isEmpty()) {
                 throw new RuntimeException("微信API返回空响应");
             }
-            
+
             return objectMapper.readValue(response, Map.class);
         } catch (Exception e) {
             System.err.println("调用微信API失败 - URL: " + url + ", 错误: " + e.getMessage());
@@ -374,14 +370,14 @@ public class WechatServiceImpl implements WechatService {
             byte[] sessionKeyBytes = Base64.decodeBase64(sessionKey);
             byte[] ivBytes = Base64.decodeBase64(iv);
             byte[] encryptedBytes = Base64.decodeBase64(encryptedData);
-            
+
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             SecretKeySpec keySpec = new SecretKeySpec(sessionKeyBytes, "AES");
             IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-            
+
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
             byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-            
+
             String decryptedData = new String(decryptedBytes, StandardCharsets.UTF_8);
             return objectMapper.readValue(decryptedData, Map.class);
         } catch (Exception e) {
@@ -396,14 +392,14 @@ public class WechatServiceImpl implements WechatService {
             byte[] sessionKeyBytes = Base64.decodeBase64(sessionKey);
             byte[] ivBytes = Base64.decodeBase64(iv);
             byte[] encryptedBytes = Base64.decodeBase64(encryptedData);
-            
+
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             SecretKeySpec keySpec = new SecretKeySpec(sessionKeyBytes, "AES");
             IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-            
+
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
             byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-            
+
             String decryptedData = new String(decryptedBytes, StandardCharsets.UTF_8);
             return objectMapper.readValue(decryptedData, Map.class);
         } catch (Exception e) {
@@ -418,10 +414,10 @@ public class WechatServiceImpl implements WechatService {
             // 示例：保存到本地文件系统
             String fileName = "qrcode_" + scene + "_" + System.currentTimeMillis() + ".png";
             String filePath = "/uploads/qrcodes/" + fileName;
-            
+
             // 实际项目中需要创建目录和文件
             // Files.write(Paths.get(filePath), qrCodeBytes);
-            
+
             return "https://yourdomain.com" + filePath;
         } catch (Exception e) {
             throw new RuntimeException("保存二维码失败: " + e.getMessage());
@@ -432,7 +428,7 @@ public class WechatServiceImpl implements WechatService {
     private User createOrUpdateUser(String openid, Map<String, Object> userInfo, String phone) {
         String internalUserId = getInternalUserIdByOpenid(openid);
         User user = userService.getUserById(internalUserId);
-        
+
         if (user == null) {
             // 创建新用户
             user = new User();
@@ -458,7 +454,7 @@ public class WechatServiceImpl implements WechatService {
             user.setUpdateTime(LocalDateTime.now());
             userService.updateUser(user);
         }
-        
+
         return user;
     }
 

@@ -8,13 +8,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.pingo.yuapi.utils.IdGeneratorUtils;
 
 @Service
 public class OrderServiceImpl implements OrderService {
 
     // 模拟订单存储
     private Map<String, Order> orderStorage = new HashMap<>();
-    
+
     public OrderServiceImpl() {
         // 初始化一些示例订单数据
         initSampleOrders();
@@ -28,22 +29,22 @@ public class OrderServiceImpl implements OrderService {
                 .filter(order -> isWithinLastWeek(order.getCreateTime()))
                 .sorted((o1, o2) -> o2.getCreateTime().compareTo(o1.getCreateTime()))
                 .collect(Collectors.toList());
-        
+
         // 分页
         int start = (page - 1) * pageSize;
         int end = Math.min(start + pageSize, userOrders.size());
-        
+
         if (start >= userOrders.size()) {
             return new ArrayList<>();
         }
-        
+
         return userOrders.subList(start, end);
     }
 
     @Override
     public String bookTrip(String tripId, String userId) {
-        String orderId = "order_" + UUID.randomUUID().toString().substring(0, 8);
-        
+        String orderId = "order_" + IdGeneratorUtils.generateShortId();
+
         Order order = new Order();
         order.setId(orderId);
         order.setTripId(tripId);
@@ -58,9 +59,9 @@ public class OrderServiceImpl implements OrderService {
         order.setCreateTime(LocalDateTime.now());
         order.setVehicleInfo("白色 特斯拉 Model 3");
         order.setUpdateTime(LocalDateTime.now());
-        
+
         orderStorage.put(orderId, order);
-        
+
         return orderId;
     }
 
@@ -114,7 +115,7 @@ public class OrderServiceImpl implements OrderService {
      */
     private void initSampleOrders() {
         LocalDateTime baseTime = LocalDateTime.now();
-        
+
         // 示例订单1 - 已完成
         Order order1 = new Order();
         order1.setId("order_001");

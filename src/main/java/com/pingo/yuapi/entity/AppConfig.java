@@ -1,7 +1,6 @@
 package com.pingo.yuapi.entity;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 public class AppConfig {
     private Long id;
@@ -9,10 +8,11 @@ public class AppConfig {
     private String configValue;
     private String configType;
     private String description;
-    private Date createTime;
-    private Date updateTime;
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
 
-    public AppConfig() {}
+    public AppConfig() {
+    }
 
     public Long getId() {
         return id;
@@ -54,19 +54,19 @@ public class AppConfig {
         this.description = description;
     }
 
-    public Date getCreateTime() {
+    public LocalDateTime getCreateTime() {
         return createTime;
     }
 
-    public void setCreateTime(Date createTime) {
+    public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }
 
-    public Date getUpdateTime() {
+    public LocalDateTime getUpdateTime() {
         return updateTime;
     }
 
-    public void setUpdateTime(Date updateTime) {
+    public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
     }
 }

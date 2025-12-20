@@ -1,39 +1,42 @@
 package com.pingo.yuapi.entity;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 行程实体（精简版）- 只存核心数据
+ */
 public class Trip {
     private String id;
-    private String driverId;
-    private String driverName;
-    private String driverAvatar;
-    private String startLocation;
-    private String endLocation;
+    private String userId; // 发布者ID
+    private String type; // car_seeking_people(车找人) or people_seeking_car(人找车)
+
+    // 核心地点信息
+    private String startCity; // 起点城市
+    private String startLocation; // 起点
     private Double startLongitude; // 起点经度
     private Double startLatitude;  // 起点纬度
+    private String endCity; // 终点城市
+    private String endLocation; // 终点
     private Double endLongitude;   // 终点经度
     private Double endLatitude;    // 终点纬度
+
+    // 核心时间信息
     private LocalDateTime departureTime;
-    private Integer availableSeats;
-    private BigDecimal price;
-    private String vehicleInfo;
-    private String status; // available, full, departed, completed
-    private Double distance;
-    private String estimatedDuration;
+    private String timing; // 时段：tonight/tomorrow
+
+    // 核心数量信息
+    private Integer availableSeats; // 可用座位数（车找人）
+    private Integer bookedSeats; // 已预订座位数
+
+    // 核心价格信息（单位：分）
+    private Long price; // 价格（车找人是单价，人找车是总价）
+
+    // 状态
+    private String status; // available, full, cancelled, completed, expired
+
+    // 时间戳
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    
-    // 乘客信息相关
-    private String type; // drive(我要开车) or ride(我要搭车)
-    private Integer passengerCount;
-    private String notes;
-    private String plateNumber;
-    
-    // 价格明细
-    private BigDecimal basePrice;
-    private BigDecimal extraFee;
-    private BigDecimal totalPrice;
 
     public Trip() {}
 
@@ -45,28 +48,28 @@ public class Trip {
         this.id = id;
     }
 
-    public String getDriverId() {
-        return driverId;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setDriverId(String driverId) {
-        this.driverId = driverId;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
-    public String getDriverName() {
-        return driverName;
+    public String getType() {
+        return type;
     }
 
-    public void setDriverName(String driverName) {
-        this.driverName = driverName;
+    public void setType(String type) {
+        this.type = type;
     }
 
-    public String getDriverAvatar() {
-        return driverAvatar;
+    public String getStartCity() {
+        return startCity;
     }
 
-    public void setDriverAvatar(String driverAvatar) {
-        this.driverAvatar = driverAvatar;
+    public void setStartCity(String startCity) {
+        this.startCity = startCity;
     }
 
     public String getStartLocation() {
@@ -75,6 +78,14 @@ public class Trip {
 
     public void setStartLocation(String startLocation) {
         this.startLocation = startLocation;
+    }
+
+    public String getEndCity() {
+        return endCity;
+    }
+
+    public void setEndCity(String endCity) {
+        this.endCity = endCity;
     }
 
     public String getEndLocation() {
@@ -133,20 +144,28 @@ public class Trip {
         this.availableSeats = availableSeats;
     }
 
-    public BigDecimal getPrice() {
+    public Integer getBookedSeats() {
+        return bookedSeats;
+    }
+
+    public void setBookedSeats(Integer bookedSeats) {
+        this.bookedSeats = bookedSeats;
+    }
+
+    public Long getPrice() {
         return price;
     }
 
-    public void setPrice(BigDecimal price) {
+    public void setPrice(Long price) {
         this.price = price;
     }
 
-    public String getVehicleInfo() {
-        return vehicleInfo;
+    public String getTiming() {
+        return timing;
     }
 
-    public void setVehicleInfo(String vehicleInfo) {
-        this.vehicleInfo = vehicleInfo;
+    public void setTiming(String timing) {
+        this.timing = timing;
     }
 
     public String getStatus() {
@@ -155,22 +174,6 @@ public class Trip {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public Double getDistance() {
-        return distance;
-    }
-
-    public void setDistance(Double distance) {
-        this.distance = distance;
-    }
-
-    public String getEstimatedDuration() {
-        return estimatedDuration;
-    }
-
-    public void setEstimatedDuration(String estimatedDuration) {
-        this.estimatedDuration = estimatedDuration;
     }
 
     public LocalDateTime getCreateTime() {
@@ -187,61 +190,5 @@ public class Trip {
 
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public Integer getPassengerCount() {
-        return passengerCount;
-    }
-
-    public void setPassengerCount(Integer passengerCount) {
-        this.passengerCount = passengerCount;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-
-    public String getPlateNumber() {
-        return plateNumber;
-    }
-
-    public void setPlateNumber(String plateNumber) {
-        this.plateNumber = plateNumber;
-    }
-
-    public BigDecimal getBasePrice() {
-        return basePrice;
-    }
-
-    public void setBasePrice(BigDecimal basePrice) {
-        this.basePrice = basePrice;
-    }
-
-    public BigDecimal getExtraFee() {
-        return extraFee;
-    }
-
-    public void setExtraFee(BigDecimal extraFee) {
-        this.extraFee = extraFee;
-    }
-
-    public BigDecimal getTotalPrice() {
-        return totalPrice;
-    }
-
-    public void setTotalPrice(BigDecimal totalPrice) {
-        this.totalPrice = totalPrice;
     }
 }

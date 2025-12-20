@@ -4,23 +4,34 @@
 
     <resultMap id="TripResultMap" type="com.pingo.yuapi.entity.Trip">
         <id column="id" property="id" jdbcType="VARCHAR"/>
-        <result column="driver_id" property="driverId" jdbcType="VARCHAR"/>
-        <result column="driver_name" property="driverName" jdbcType="VARCHAR"/>
-        <result column="driver_avatar" property="driverAvatar" jdbcType="VARCHAR"/>
-        <result column="start_location" property="startLocation" jdbcType="VARCHAR"/>
-        <result column="end_location" property="endLocation" jdbcType="VARCHAR"/>
-        <result column="start_longitude" property="startLongitude" jdbcType="DECIMAL"/>
-        <result column="start_latitude" property="startLatitude" jdbcType="DECIMAL"/>
-        <result column="end_longitude" property="endLongitude" jdbcType="DECIMAL"/>
-        <result column="end_latitude" property="endLatitude" jdbcType="DECIMAL"/>
-        <result column="departure_time" property="departureTime" jdbcType="TIMESTAMP"/>
-        <result column="available_seats" property="availableSeats" jdbcType="INTEGER"/>
-        <result column="passenger_count" property="passengerCount" jdbcType="INTEGER"/>
-        <result column="price" property="price" jdbcType="DECIMAL"/>
-        <result column="vehicle_info" property="vehicleInfo" jdbcType="VARCHAR"/>
-        <result column="note" property="notes" jdbcType="LONGVARCHAR"/>
+        <result column="user_id" property="userId" jdbcType="VARCHAR"/>
         <result column="type" property="type" jdbcType="VARCHAR"/>
+
+        <!-- 核心地点信息 -->
+        <result column="start_city" property="startCity" jdbcType="VARCHAR"/>
+        <result column="start_location" property="startLocation" jdbcType="VARCHAR"/>
+        <result column="start_longitude" property="startLongitude" jdbcType="DOUBLE"/>
+        <result column="start_latitude" property="startLatitude" jdbcType="DOUBLE"/>
+        <result column="end_city" property="endCity" jdbcType="VARCHAR"/>
+        <result column="end_location" property="endLocation" jdbcType="VARCHAR"/>
+        <result column="end_longitude" property="endLongitude" jdbcType="DOUBLE"/>
+        <result column="end_latitude" property="endLatitude" jdbcType="DOUBLE"/>
+
+        <!-- 核心时间信息 -->
+        <result column="departure_time" property="departureTime" jdbcType="TIMESTAMP"/>
+        <result column="timing" property="timing" jdbcType="VARCHAR"/>
+
+        <!-- 核心数量信息 -->
+        <result column="available_seats" property="availableSeats" jdbcType="INTEGER"/>
+        <result column="booked_seats" property="bookedSeats" jdbcType="INTEGER"/>
+
+        <!-- 核心价格信息（分） -->
+        <result column="price" property="price" jdbcType="BIGINT"/>
+
+        <!-- 状态 -->
         <result column="status" property="status" jdbcType="VARCHAR"/>
+
+        <!-- 时间戳 -->
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
@@ -44,8 +55,11 @@
             <if test="status != null">
                 AND status = #{status}
             </if>
-            <if test="driverId != null">
-                AND driver_id = #{driverId}
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="timing != null">
+                AND timing = #{timing}
             </if>
             <if test="startLocation != null">
                 AND start_location LIKE CONCAT('%', #{startLocation}, '%')
@@ -82,34 +96,39 @@
     <!-- 插入行程 -->
     <insert id="insertTrip" parameterType="com.pingo.yuapi.entity.Trip">
         INSERT INTO trips (
-            id, driver_id, driver_name, driver_avatar, start_location, end_location, 
-            start_longitude, start_latitude, end_longitude, end_latitude,
-            departure_time, available_seats, passenger_count, price, vehicle_info, 
-            note, type, status, create_time, update_time
+            id, user_id, type,
+            start_city, start_location, start_longitude, start_latitude,
+            end_city, end_location, end_longitude, end_latitude,
+            departure_time, timing,
+            available_seats, booked_seats, price,
+            status
         ) VALUES (
-            #{id}, #{driverId}, #{driverName}, #{driverAvatar}, #{startLocation}, #{endLocation},
-            #{startLongitude}, #{startLatitude}, #{endLongitude}, #{endLatitude},
-            #{departureTime}, #{availableSeats}, #{passengerCount}, #{price}, #{vehicleInfo},
-            #{notes}, #{type}, #{status}, #{createTime}, #{updateTime}
+            #{id}, #{userId}, #{type},
+            #{startCity}, #{startLocation}, #{startLongitude}, #{startLatitude},
+            #{endCity}, #{endLocation}, #{endLongitude}, #{endLatitude},
+            #{departureTime}, #{timing},
+            #{availableSeats}, #{bookedSeats}, #{price},
+            #{status}
         )
     </insert>
 
     <!-- 更新行程 -->
     <update id="updateTrip" parameterType="com.pingo.yuapi.entity.Trip">
         UPDATE trips SET
-            driver_name = #{driverName},
-            driver_avatar = #{driverAvatar},
+            start_city = #{startCity},
             start_location = #{startLocation},
+            start_longitude = #{startLongitude},
+            start_latitude = #{startLatitude},
+            end_city = #{endCity},
             end_location = #{endLocation},
+            end_longitude = #{endLongitude},
+            end_latitude = #{endLatitude},
             departure_time = #{departureTime},
+            timing = #{timing},
             available_seats = #{availableSeats},
-            passenger_count = #{passengerCount},
+            booked_seats = #{bookedSeats},
             price = #{price},
-            vehicle_info = #{vehicleInfo},
-            note = #{notes},
-            type = #{type},
-            status = #{status},
-            update_time = #{updateTime}
+            status = #{status}
         WHERE id = #{id}
     </update>
 
@@ -120,8 +139,8 @@
 
     <!-- 查询用户的行程 -->
     <select id="selectUserTrips" resultMap="TripResultMap">
-        SELECT * FROM trips 
-        WHERE driver_id = #{userId}
+        SELECT * FROM trips
+        WHERE user_id = #{userId}
         ORDER BY create_time DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
@@ -134,16 +153,14 @@
     <!-- 更新行程状态 -->
     <update id="updateTripStatus">
         UPDATE trips SET 
-            status = #{status},
-            update_time = NOW()
+            status = #{status}
         WHERE id = #{id}
     </update>
 
     <!-- 减少可用座位数 -->
     <update id="decreaseAvailableSeats">
         UPDATE trips SET 
-            available_seats = available_seats - #{count},
-            update_time = NOW()
+            available_seats = available_seats - #{count}
         WHERE id = #{id}
         AND available_seats >= #{count}
     </update>

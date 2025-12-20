@@ -5,6 +5,8 @@ import com.pingo.yuapi.dto.CommuteSetupRequest;
 import com.pingo.yuapi.dto.UserCommuteSetup;
 import com.pingo.yuapi.entity.User;
 import com.pingo.yuapi.service.UserService;
+import com.pingo.yuapi.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +21,12 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private HttpServletRequest request;
 
     /**
      * 获取用户资料
@@ -200,8 +208,8 @@ public class UserController {
      * 上传认证文件
      */
     @PostMapping("/verification/upload")
-    public Result<String> uploadVerificationFile(@RequestParam("file") MultipartFile file, 
-                                                 @RequestParam("type") String fileType) {
+    public Result<String> uploadVerificationFile(@RequestParam("file") MultipartFile file,
+            @RequestParam("type") String fileType) {
         try {
             String userId = getCurrentUserId();
             String fileUrl = userService.uploadVerificationFile(userId, file, fileType);
@@ -294,11 +302,11 @@ public class UserController {
             String userId = getCurrentUserId();
             Double amount = Double.valueOf(request.get("amount").toString());
             String paymentMethod = (String) request.get("paymentMethod");
-            
+
             if (amount <= 0) {
                 return Result.error("充值金额必须大于0");
             }
-            
+
             boolean success = userService.rechargeWallet(userId, amount, paymentMethod);
             return Result.success(success);
         } catch (Exception e) {
@@ -315,11 +323,11 @@ public class UserController {
             String userId = getCurrentUserId();
             Double amount = Double.valueOf(request.get("amount").toString());
             String bankAccount = (String) request.get("bankAccount");
-            
+
             if (amount <= 0) {
                 return Result.error("提现金额必须大于0");
             }
-            
+
             boolean success = userService.withdrawWallet(userId, amount, bankAccount);
             return Result.success(success);
         } catch (Exception e) {
@@ -408,11 +416,11 @@ public class UserController {
         try {
             String openid = (String) request.get("openid");
             Boolean completed = (Boolean) request.get("completed");
-            
+
             if (openid == null || completed == null) {
                 return Result.error("参数不完整");
             }
-            
+
             boolean success = userService.updateFirstSetupCompleted(openid, completed);
             return Result.success(success);
         } catch (Exception e) {
@@ -468,8 +476,24 @@ public class UserController {
      * 获取当前用户ID（实际项目中应该从JWT token或session中获取）
      */
     private String getCurrentUserId() {
-        // 这里应该从认证信息中获取真实的用户ID
-        // 为了演示，返回一个固定的用户ID
-        return "user_001";
+        // 1. 尝试从Token获取
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            String tokenValue = token.substring(7);
+            try {
+                Map<String, Object> userInfo = authService.getUserInfoByToken(tokenValue);
+                return (String) userInfo.get("id");
+            } catch (Exception e) {
+                // Token无效，继续尝试其他方式
+            }
+        }
+
+        // 2. 尝试从Header获取（开发/测试环境或Token过期时的临时方案）
+        String headerUserId = request.getHeader("X-User-Id");
+        if (headerUserId != null && !headerUserId.trim().isEmpty()) {
+            return headerUserId;
+        }
+
+        throw new RuntimeException("未登录");
     }
 }

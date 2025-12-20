@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import com.pingo.yuapi.utils.IdGeneratorUtils;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -28,21 +29,20 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUserById(String userId) {
         try {
-            User user = userMapper.findById(userId);
-            if (user == null) {
-                user = new User();
-                user.setId(userId);
-                user.setName("用户" + userId.substring(Math.max(0, userId.length() - 3)));
-                user.setPhone("138****8888");
-                user.setAvatar("/static/default-avatar.png");
-                user.setBalance(new BigDecimal("0"));
-                user.setCoupons(2);
-                user.setHistoryOrders(15);
-                user.setVerificationStatus("none");
-                user.setCreateTime(LocalDateTime.now());
-                userMapper.createUser(user);
-            }
-            return user;
+            return userMapper.findById(userId);
+            // if (user == null) {
+            // user = new User();
+            // user.setId(userId);
+            // user.setName("用户" + userId.substring(Math.max(0, userId.length() - 3)));
+            // user.setPhone("138****8888");
+            // user.setAvatar("/static/default-avatar.png");
+            // user.setBalance(new BigDecimal("0"));
+            // user.setCoupons(2);
+            // user.setHistoryOrders(15);
+            // user.setVerificationStatus("none");
+            // userMapper.createUser(user);
+            // }
+            // return user;
         } catch (Exception e) {
             throw new RuntimeException("获取用户信息失败: " + e.getMessage());
         }
@@ -61,7 +61,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Map<String, Object>> getUserLocations(String userId) {
         List<Map<String, Object>> locations = new ArrayList<>();
-        
+
         Map<String, Object> location1 = new HashMap<>();
         location1.put("id", "loc_001");
         location1.put("name", "荣盛阿尔卡迪亚");
@@ -85,7 +85,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public String saveUserLocation(Map<String, Object> location) {
-        String locationId = "loc_" + UUID.randomUUID().toString().substring(0, 8);
+        String locationId = "loc_" + IdGeneratorUtils.generateShortId();
         location.put("id", locationId);
         // 这里应该保存到数据库
         return locationId;
@@ -94,7 +94,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Map<String, Object>> getFollowedDrivers(String userId) {
         List<Map<String, Object>> drivers = new ArrayList<>();
-        
+
         Map<String, Object> driver1 = new HashMap<>();
         driver1.put("id", "driver_001");
         driver1.put("name", "张师傅");
@@ -122,7 +122,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Map<String, Object>> getBlacklistedUsers(String userId) {
         List<Map<String, Object>> blacklistedUsers = new ArrayList<>();
-        
+
         Map<String, Object> user1 = new HashMap<>();
         user1.put("id", "user_999");
         user1.put("name", "不良用户");
@@ -163,9 +163,9 @@ public class UserServiceImpl implements UserService {
         try {
             String filename = userId + "_avatar_" + System.currentTimeMillis() + ".jpg";
             String avatarUrl = "/uploads/avatars/" + filename;
-            
+
             userMapper.updateAvatar(userId, avatarUrl);
-            
+
             return avatarUrl;
         } catch (Exception e) {
             throw new RuntimeException("上传头像失败: " + e.getMessage());
@@ -194,7 +194,7 @@ public class UserServiceImpl implements UserService {
         try {
             Map<String, Object> stats = new HashMap<>();
             User user = userMapper.findById(userId);
-            
+
             if (user != null) {
                 stats.put("trips", user.getHistoryOrders());
                 stats.put("savedMoney", 1580.5);
@@ -204,7 +204,7 @@ public class UserServiceImpl implements UserService {
                 stats.put("savedMoney", 0.0);
                 stats.put("carbon", 0.0);
             }
-            
+
             return stats;
         } catch (Exception e) {
             throw new RuntimeException("获取用户统计失败: " + e.getMessage());
@@ -233,12 +233,12 @@ public class UserServiceImpl implements UserService {
     public Map<String, Object> getUserWallet(String userId) {
         User user = getUserById(userId);
         Map<String, Object> walletInfo = new HashMap<>();
-        
+
         walletInfo.put("balance", user.getBalance());
         walletInfo.put("frozenAmount", new BigDecimal("0.00"));
         walletInfo.put("coupons", user.getCoupons());
         walletInfo.put("points", 1250);
-        
+
         return walletInfo;
     }
 
@@ -266,7 +266,7 @@ public class UserServiceImpl implements UserService {
             if (user != null) {
                 BigDecimal currentBalance = user.getBalance();
                 BigDecimal withdrawAmount = new BigDecimal(amount.toString());
-                
+
                 if (currentBalance.compareTo(withdrawAmount) >= 0) {
                     BigDecimal newBalance = currentBalance.subtract(withdrawAmount);
                     user.setBalance(newBalance);
@@ -283,7 +283,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Map<String, Object>> getWalletTransactions(String userId, Integer page, Integer limit) {
         List<Map<String, Object>> transactions = new ArrayList<>();
-        
+
         // 模拟交易记录
         Map<String, Object> transaction1 = new HashMap<>();
         transaction1.put("id", "txn_001");
@@ -293,7 +293,7 @@ public class UserServiceImpl implements UserService {
         transaction1.put("createTime", LocalDateTime.now().minusDays(1).toString());
         transaction1.put("status", "success");
         transactions.add(transaction1);
-        
+
         Map<String, Object> transaction2 = new HashMap<>();
         transaction2.put("id", "txn_002");
         transaction2.put("type", "consume");
@@ -302,7 +302,7 @@ public class UserServiceImpl implements UserService {
         transaction2.put("createTime", LocalDateTime.now().minusDays(2).toString());
         transaction2.put("status", "success");
         transactions.add(transaction2);
-        
+
         return transactions;
     }
 
@@ -337,7 +337,7 @@ public class UserServiceImpl implements UserService {
         try {
             User user = userMapper.findById(userId);
             Map<String, Object> status = new HashMap<>();
-            
+
             if (user != null) {
                 status.put("verificationStatus", user.getVerificationStatus());
                 status.put("submittedAt", user.getUpdateTime());
@@ -347,7 +347,7 @@ public class UserServiceImpl implements UserService {
                 status.put("submittedAt", null);
                 status.put("reviewMessage", "");
             }
-            
+
             return status;
         } catch (Exception e) {
             throw new RuntimeException("获取认证状态失败: " + e.getMessage());
@@ -417,23 +417,21 @@ public class UserServiceImpl implements UserService {
             // Save or update home location
             if (request.getHomeAddress() != null && request.getHomeLocation() != null) {
                 saveOrUpdateUserLocation(
-                    request.getUserId(),
-                    "home",
-                    request.getHomeAddress(),
-                    request.getHomeCity(),
-                    request.getHomeLocation()
-                );
+                        request.getUserId(),
+                        "home",
+                        request.getHomeAddress(),
+                        request.getHomeCity(),
+                        request.getHomeLocation());
             }
 
             // Save or update company location
             if (request.getWorkAddress() != null && request.getWorkLocation() != null) {
                 saveOrUpdateUserLocation(
-                    request.getUserId(),
-                    "company",
-                    request.getWorkAddress(),
-                    request.getWorkCity(),
-                    request.getWorkLocation()
-                );
+                        request.getUserId(),
+                        "company",
+                        request.getWorkAddress(),
+                        request.getWorkCity(),
+                        request.getWorkLocation());
             }
 
             return true;
@@ -445,7 +443,8 @@ public class UserServiceImpl implements UserService {
     /**
      * Private helper method to save or update a user location
      */
-    private void saveOrUpdateUserLocation(String userId, String type, String address, String city, LocationDTO location) {
+    private void saveOrUpdateUserLocation(String userId, String type, String address, String city,
+            LocationDTO location) {
         // Check if location already exists
         UserLocation existing = userLocationMapper.findByUserIdAndType(userId, type);
 
@@ -460,7 +459,7 @@ public class UserServiceImpl implements UserService {
         } else {
             // Insert new location
             UserLocation newLocation = new UserLocation();
-            newLocation.setId(UUID.randomUUID().toString());
+            newLocation.setId(IdGeneratorUtils.generateId());
             newLocation.setUserId(userId);
             newLocation.setName(address);
             newLocation.setAddress(address);

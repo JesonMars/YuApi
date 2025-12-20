@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.TripDetailsMapper">
+
+    <resultMap id="TripDetailsResultMap" type="com.pingo.yuapi.entity.TripDetails">
+        <id column="id" property="id" jdbcType="VARCHAR"/>
+        <result column="trip_id" property="tripId" jdbcType="VARCHAR"/>
+
+        <!-- 详细地址 -->
+
+        <result column="pickup_points" property="pickupPoints" jdbcType="LONGVARCHAR"/>
+        <result column="dropoff_points" property="dropoffPoints" jdbcType="LONGVARCHAR"/>
+
+        <!-- 司机信息 -->
+        <result column="driver_name" property="driverName" jdbcType="VARCHAR"/>
+        <result column="driver_avatar" property="driverAvatar" jdbcType="VARCHAR"/>
+        <result column="driver_phone" property="driverPhone" jdbcType="VARCHAR"/>
+        <result column="vehicle_info" property="vehicleInfo" jdbcType="VARCHAR"/>
+        <result column="plate_number" property="plateNumber" jdbcType="VARCHAR"/>
+
+        <!-- 行程详细信息 -->
+        <result column="notes" property="notes" jdbcType="LONGVARCHAR"/>
+        <!-- 价格明细（分） -->
+        <result column="price_per_seat" property="pricePerSeat" jdbcType="BIGINT"/>
+        <result column="seat_count" property="seatCount" jdbcType="INTEGER"/>
+        <result column="total_income" property="totalIncome" jdbcType="BIGINT"/>
+        <result column="base_price" property="basePrice" jdbcType="BIGINT"/>
+        <result column="extra_fee" property="extraFee" jdbcType="BIGINT"/>
+
+        <!-- 乘客信息 -->
+        <result column="passenger_count" property="passengerCount" jdbcType="INTEGER"/>
+
+        <!-- 时间戳 -->
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- 插入行程详情 -->
+    <insert id="insertTripDetails" parameterType="com.pingo.yuapi.entity.TripDetails">
+        INSERT INTO trip_details (
+            id, trip_id,
+            pickup_points, dropoff_points,
+            driver_name, driver_avatar, driver_phone, vehicle_info, plate_number,
+            notes,
+            price_per_seat, seat_count, total_income, base_price, extra_fee,
+            passenger_count
+        ) VALUES (
+            #{id}, #{tripId},
+            #{pickupPoints}, #{dropoffPoints},
+            #{driverName}, #{driverAvatar}, #{driverPhone}, #{vehicleInfo}, #{plateNumber},
+            #{notes},
+            #{pricePerSeat}, #{seatCount}, #{totalIncome}, #{basePrice}, #{extraFee},
+            #{passengerCount}
+        )
+    </insert>
+
+    <!-- 根据tripId查询行程详情 -->
+    <select id="selectByTripId" resultMap="TripDetailsResultMap">
+        SELECT * FROM trip_details
+        WHERE trip_id = #{tripId}
+    </select>
+
+    <!-- 根据ID查询行程详情 -->
+    <select id="selectById" resultMap="TripDetailsResultMap">
+        SELECT * FROM trip_details
+        WHERE id = #{id}
+    </select>
+
+    <!-- 更新行程详情 -->
+    <update id="updateTripDetails" parameterType="com.pingo.yuapi.entity.TripDetails">
+        UPDATE trip_details SET
+
+            pickup_points = #{pickupPoints},
+            dropoff_points = #{dropoffPoints},
+            driver_name = #{driverName},
+            driver_avatar = #{driverAvatar},
+            driver_phone = #{driverPhone},
+            vehicle_info = #{vehicleInfo},
+            plate_number = #{plateNumber},
+            notes = #{notes},
+            price_per_seat = #{pricePerSeat},
+            seat_count = #{seatCount},
+            total_income = #{totalIncome},
+            base_price = #{basePrice},
+            extra_fee = #{extraFee},
+            passenger_count = #{passengerCount}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据tripId删除行程详情 -->
+    <delete id="deleteByTripId">
+        DELETE FROM trip_details WHERE trip_id = #{tripId}
+    </delete>
+
+    <!-- 根据ID删除行程详情 -->
+    <delete id="deleteById">
+        DELETE FROM trip_details WHERE id = #{id}
+    </delete>
+
+</mapper>

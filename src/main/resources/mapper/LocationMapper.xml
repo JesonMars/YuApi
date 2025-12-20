@@ -28,8 +28,8 @@
     </select>
 
     <insert id="insert" parameterType="com.pingo.yuapi.entity.Location">
-        INSERT INTO location (name, address, longitude, latitude, type, sort_order, status, create_time, update_time)
-        VALUES (#{name}, #{address}, #{longitude}, #{latitude}, #{type}, #{sortOrder}, #{status}, NOW(), NOW())
+        INSERT INTO location (name, address, longitude, latitude, type, sort_order, status)
+        VALUES (#{name}, #{address}, #{longitude}, #{latitude}, #{type}, #{sortOrder}, #{status})
     </insert>
 
     <update id="updateById" parameterType="com.pingo.yuapi.entity.Location">
@@ -40,8 +40,7 @@
             latitude = #{latitude},
             type = #{type},
             sort_order = #{sortOrder},
-            status = #{status},
-            update_time = NOW()
+            status = #{status}
         WHERE id = #{id}
     </update>
 

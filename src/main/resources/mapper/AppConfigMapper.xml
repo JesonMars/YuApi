@@ -25,16 +25,15 @@
     </select>
 
     <insert id="insert" parameterType="com.pingo.yuapi.entity.AppConfig">
-        INSERT INTO app_config (config_key, config_value, config_type, description, create_time, update_time)
-        VALUES (#{configKey}, #{configValue}, #{configType}, #{description}, NOW(), NOW())
+        INSERT INTO app_config (config_key, config_value, config_type, description)
+        VALUES (#{configKey}, #{configValue}, #{configType}, #{description})
     </insert>
 
     <update id="updateByKey" parameterType="com.pingo.yuapi.entity.AppConfig">
         UPDATE app_config 
         SET config_value = #{configValue}, 
             config_type = #{configType},
-            description = #{description},
-            update_time = NOW()
+            description = #{description}
         WHERE config_key = #{configKey}
     </update>
 
