@@ -12,6 +12,7 @@ import com.pingo.yuapi.mapper.UserCommuteConfigMapper;
 import com.pingo.yuapi.mapper.UserLocationMapper;
 import com.pingo.yuapi.service.TripService;
 import com.pingo.yuapi.utils.DateUtils;
+import com.pingo.yuapi.utils.GsonUtils;
 import com.pingo.yuapi.utils.IdGeneratorUtils;
 import com.pingo.yuapi.utils.MoneyUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +23,14 @@ import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 @Service
 public class TripServiceImpl implements TripService {
 
     private static final Logger logger = LoggerFactory.getLogger(TripServiceImpl.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private TripMapper tripMapper;
@@ -112,7 +116,38 @@ public class TripServiceImpl implements TripService {
 
     @Override
     public Trip getTripById(String tripId) {
-        return tripMapper.selectTripById(tripId);
+        Trip trip = tripMapper.selectTripById(tripId);
+        if (trip != null) {
+            // 填充途经点信息
+            TripDetails details = tripDetailsMapper.selectByTripId(tripId);
+            if (details != null) {
+                trip.setPickupPoints(parseWaypoints(details.getPickupPoints()));
+                trip.setDropoffPoints(parseWaypoints(details.getDropoffPoints()));
+                // 也可以填充其他详情信息，如备注等
+                // trip.setNotes(details.getNotes());
+            }
+
+            // 填充司机信息
+            User user = userMapper.findById(trip.getUserId());
+            if (user != null) {
+                trip.setDriverName(user.getName());
+                // 组合车辆信息
+                if (user.getVehicleBrand() != null || user.getVehicleColor() != null) {
+                    StringBuilder carInfo = new StringBuilder();
+                    if (user.getVehicleBrand() != null) {
+                        carInfo.append(user.getVehicleBrand());
+                    }
+                    if (user.getVehicleColor() != null) {
+                        if (carInfo.length() > 0) {
+                            carInfo.append(" ");
+                        }
+                        carInfo.append(user.getVehicleColor());
+                    }
+                    trip.setCarInfo(carInfo.toString());
+                }
+            }
+        }
+        return trip;
     }
 
     @Override
@@ -232,17 +267,23 @@ public class TripServiceImpl implements TripService {
             dropoffPoints = config.getDropoffPoints();
         }
 
-        // TripDetails 目前还是存储简单的字符串（或者也可以存JSON，视需求而定，这里保持原样或存JSON）
-        // 如果 TripDetails 的 pickupPoints 字段定义为 String，存 JSON 也是可以的。
-        // 但前端显示可能依赖于这个字段的格式。
-        // 假设 TripDetails 仍然存储显示的名称字符串（为了兼容旧逻辑），或者我们可以存 JSON。
-        // 鉴于 TripDetails 是历史记录，存 JSON 更好。但为了不破坏现有显示逻辑（如果前端直接显示这个字段），
-        // 我们先保持存名称字符串，或者确认前端如何使用。
-        // 实际上，TripDetails 的 pickupPoints 字段在前端展示时，如果是 JSON 字符串，前端可能需要解析。
-        // 暂时保持存名称字符串给 TripDetails，但更新 UserCommuteConfig 时使用 JSON。
+        // 🔧 优先保存JSON格式的途经点数据（包含经纬度）到trip_details
+        // 如果前端传了JSON数据，优先使用JSON；否则使用简单字符串（兼容旧数据）
+        if (pickupPointsJson != null && !pickupPointsJson.isEmpty()) {
+            details.setPickupPoints(pickupPointsJson);
+        } else if (pickupPoints != null) {
+            details.setPickupPoints(pickupPoints);
+        } else if (config.getPickupPoints() != null) {
+            details.setPickupPoints(config.getPickupPoints());
+        }
 
-        details.setPickupPoints(pickupPoints);
-        details.setDropoffPoints(dropoffPoints);
+        if (dropoffPointsJson != null && !dropoffPointsJson.isEmpty()) {
+            details.setDropoffPoints(dropoffPointsJson);
+        } else if (dropoffPoints != null) {
+            details.setDropoffPoints(dropoffPoints);
+        } else if (config.getDropoffPoints() != null) {
+            details.setDropoffPoints(config.getDropoffPoints());
+        }
 
         // 价格明细
         details.setPricePerSeat(priceFen);
@@ -526,6 +567,19 @@ public class TripServiceImpl implements TripService {
             followedUserIds = getFollowedUserIds(currentUserId);
         }
 
+        // 预加载所有行程的TripDetails（用于检查途经点）
+        final Map<String, TripDetails> tripDetailsMap = new HashMap<>();
+        for (Trip trip : trips) {
+            try {
+                TripDetails details = tripDetailsMapper.selectByTripId(trip.getId());
+                if (details != null) {
+                    tripDetailsMap.put(trip.getId(), details);
+                }
+            } catch (Exception e) {
+                logger.warn("加载行程详情失败: tripId={}, error={}", trip.getId(), e.getMessage());
+            }
+        }
+
         final Set<String> finalFollowedUserIds = followedUserIds;
         final boolean finalFollowsOnly = followsOnly;
         List<Trip> filteredTrips = trips.stream()
@@ -544,7 +598,7 @@ public class TripServiceImpl implements TripService {
                         }
                     }
 
-                    // 家附近距离筛选（只检查起点距离）
+                    // 家附近距离筛选（检查所有途经点）
                     // 只有当用户设置了家位置时才进行距离筛选
                     Object homeDistanceObj = params.get("homeDistance");
                     if (homeDistanceObj != null) {
@@ -556,17 +610,18 @@ public class TripServiceImpl implements TripService {
                                 int homeDistance = homeDistanceObj instanceof String
                                         ? Integer.parseInt((String) homeDistanceObj)
                                         : (Integer) homeDistanceObj;
-                                if (homeDistance > 0 && trip.getStartLatitude() != null
-                                        && trip.getStartLongitude() != null) {
-                                    double distance = calculateDistance(homeCoords[0], homeCoords[1],
-                                            trip.getStartLatitude(), trip.getStartLongitude());
-                                    if (distance > homeDistance) {
-                                        logger.info("家附近距离筛选: 行程 {} 被过滤 - 起点:{} 距离家{}米, 超过{}米",
-                                                trip.getId(), trip.getStartLocation(), (int) distance, homeDistance);
+                                if (homeDistance > 0) {
+                                    // 获取行程的途经点详情
+                                    TripDetails details = tripDetailsMap.get(trip.getId());
+                                    // 检查途经点中是否有符合距离条件的（包含回退到起点/终点的逻辑）
+                                    boolean hasNearbyWaypoint = hasWaypointWithinDistance(trip, details, homeCoords[0],
+                                            homeCoords[1], homeDistance);
+                                    if (!hasNearbyWaypoint) {
+                                        logger.info("家附近距离筛选: 行程 {} 被过滤 - 没有途经点在家附近{}米范围内",
+                                                trip.getId(), homeDistance);
                                         return false;
                                     } else {
-                                        logger.info("家附近距离筛选: 行程 {} 通过 - 起点:{} 距离家{}米",
-                                                trip.getId(), trip.getStartLocation(), (int) distance);
+                                        logger.info("家附近距离筛选: 行程 {} 通过 - 有途经点在家附近", trip.getId());
                                     }
                                 }
                             } catch (NumberFormatException e) {
@@ -575,7 +630,7 @@ public class TripServiceImpl implements TripService {
                         }
                     }
 
-                    // 公司附近距离筛选（只检查起点距离）
+                    // 公司附近距离筛选（检查所有途经点）
                     // 只有当用户设置了公司位置时才进行距离筛选
                     Object companyDistanceObj = params.get("companyDistance");
                     if (companyDistanceObj != null) {
@@ -587,17 +642,19 @@ public class TripServiceImpl implements TripService {
                                 int companyDistance = companyDistanceObj instanceof String
                                         ? Integer.parseInt((String) companyDistanceObj)
                                         : (Integer) companyDistanceObj;
-                                if (companyDistance > 0 && trip.getStartLatitude() != null
-                                        && trip.getStartLongitude() != null) {
-                                    double distance = calculateDistance(companyCoords[0], companyCoords[1],
-                                            trip.getStartLatitude(), trip.getStartLongitude());
-                                    if (distance > companyDistance) {
-                                        logger.info("公司附近距离筛选: 行程 {} 被过滤 - 起点:{} 距离公司{}米, 超过{}米",
-                                                trip.getId(), trip.getStartLocation(), (int) distance, companyDistance);
+                                if (companyDistance > 0) {
+                                    // 获取行程的途经点详情
+                                    TripDetails details = tripDetailsMap.get(trip.getId());
+                                    // 检查途经点中是否有符合距离条件的（包含回退到起点/终点的逻辑）
+                                    boolean hasNearbyWaypoint = hasWaypointWithinDistance(trip, details,
+                                            companyCoords[0],
+                                            companyCoords[1], companyDistance);
+                                    if (!hasNearbyWaypoint) {
+                                        logger.info("公司附近距离筛选: 行程 {} 被过滤 - 没有途经点在公司附近{}米范围内",
+                                                trip.getId(), companyDistance);
                                         return false;
                                     } else {
-                                        logger.info("公司附近距离筛选: 行程 {} 通过 - 起点:{} 距离公司{}米",
-                                                trip.getId(), trip.getStartLocation(), (int) distance);
+                                        logger.info("公司附近距离筛选: 行程 {} 通过 - 有途经点在公司附近", trip.getId());
                                     }
                                 }
                             } catch (NumberFormatException e) {
@@ -612,7 +669,7 @@ public class TripServiceImpl implements TripService {
                         return false;
                     }
 
-                    // 地铁站筛选
+                    // 地铁站筛选（检查所有途经点）
                     Object subwayStationsObj = params.get("subwayStations");
                     List<String> subwayStations = null;
                     if (subwayStationsObj instanceof String) {
@@ -628,14 +685,13 @@ public class TripServiceImpl implements TripService {
 
                     if (subwayStations != null && !subwayStations.isEmpty()) {
                         boolean foundMatch = false;
-                        String startLocation = trip.getStartLocation();
-                        String endLocation = trip.getEndLocation();
+                        TripDetails details = tripDetailsMap.get(trip.getId());
 
                         for (String stationId : subwayStations) {
                             String stationName = getSubwayStationName(stationId);
                             if (stationName != null) {
-                                if ((startLocation != null && startLocation.contains(stationName)) ||
-                                        (endLocation != null && endLocation.contains(stationName))) {
+                                // 检查途经点中是否包含该地铁站
+                                if (hasWaypointWithSubwayStation(details, stationName)) {
                                     foundMatch = true;
                                     break;
                                 }
@@ -643,9 +699,11 @@ public class TripServiceImpl implements TripService {
                         }
 
                         if (!foundMatch) {
-                            logger.debug("地铁站筛选: 行程 {} 被过滤 - 起点:{}, 终点:{}, 需要包含地铁站:{}",
-                                    trip.getId(), startLocation, endLocation, subwayStations);
+                            logger.debug("地铁站筛选: 行程 {} 被过滤 - 没有途经点包含地铁站:{}",
+                                    trip.getId(), subwayStations);
                             return false;
+                        } else {
+                            logger.info("地铁站筛选: 行程 {} 通过 - 途经点包含地铁站", trip.getId());
                         }
                     }
 
@@ -654,8 +712,16 @@ public class TripServiceImpl implements TripService {
                 .collect(ArrayList::new, (list, trip) -> list.add(trip), ArrayList::addAll);
 
         // 填充用户信息（司机姓名和车辆信息）
+        // 填充用户信息（司机姓名和车辆信息）和途经点信息
         filteredTrips.forEach(trip -> {
             try {
+                // 填充途经点信息
+                TripDetails details = tripDetailsMap.get(trip.getId());
+                if (details != null) {
+                    trip.setPickupPoints(parseWaypoints(details.getPickupPoints()));
+                    trip.setDropoffPoints(parseWaypoints(details.getDropoffPoints()));
+                }
+
                 User user = userMapper.findById(trip.getUserId());
                 if (user != null) {
                     trip.setDriverName(user.getName());
@@ -772,5 +838,183 @@ public class TripServiceImpl implements TripService {
             default:
                 return null;
         }
+    }
+
+    /**
+     * 途经点类，用于解析JSON
+     */
+    private static class Waypoint {
+        private String name;
+        private Double longitude;
+        private Double latitude;
+        private String address;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Double getLongitude() {
+            return longitude;
+        }
+
+        public void setLongitude(Double longitude) {
+            this.longitude = longitude;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public void setLatitude(Double latitude) {
+            this.latitude = latitude;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+    }
+
+    /**
+     * 解析途经点JSON字符串
+     * 兼容两种格式：
+     * 1. JSON数组格式（包含经纬度）: [{"name":"地点","longitude":116.0,"latitude":39.0}]
+     * 2. 简单字符串格式（仅名称）: "地点1、地点2、地点3"
+     */
+    private List<Waypoint> parseWaypoints(String jsonStr) {
+        if (jsonStr == null || jsonStr.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 尝试JSON格式
+        if (jsonStr.trim().startsWith("[")) {
+            try {
+                return GsonUtils.fromJson2List(jsonStr, Waypoint.class);
+            } catch (Exception e) {
+                logger.debug("解析途经点JSON失败: {}, error={}", jsonStr, e.getMessage());
+            }
+        }
+
+        // 简单字符串格式（仅名称，无坐标）
+        // 这种格式无法用于距离过滤，但可以用于地铁站过滤
+        String[] names = jsonStr.split("[、,]");
+        List<Waypoint> waypoints = new ArrayList<>();
+        for (String name : names) {
+            if (name != null && !name.trim().isEmpty()) {
+                Waypoint wp = new Waypoint();
+                wp.setName(name.trim());
+                waypoints.add(wp);
+            }
+        }
+        return waypoints;
+    }
+
+    /**
+     * 检查行程的任意途经点（包括起点、终点、上车点、下车点）是否在指定距离内
+     * 只要有任意一个点符合距离条件就返回true
+     *
+     * @param trip        行程对象（用于获取起点/终点坐标）
+     * @param tripDetails 行程详情
+     * @param targetLat   目标纬度
+     * @param targetLng   目标经度
+     * @param maxDistance 最大距离（米）
+     * @return 是否有途经点在范围内
+     */
+    private boolean hasWaypointWithinDistance(Trip trip, TripDetails tripDetails, double targetLat, double targetLng,
+            int maxDistance) {
+
+        // 检查途经点（如果有坐标信息）
+        if (tripDetails != null) {
+            // 检查上车点
+            List<Waypoint> pickupPoints = parseWaypoints(tripDetails.getPickupPoints());
+            for (Waypoint point : pickupPoints) {
+                if (point.getLatitude() != null && point.getLongitude() != null) {
+                    double distance = calculateDistance(targetLat, targetLng, point.getLatitude(),
+                            point.getLongitude());
+                    if (distance <= maxDistance) {
+                        logger.info("途经点符合距离: 上车点 {} 距离{}米", point.getName(), (int) distance);
+                        return true;
+                    }
+                }
+            }
+
+            // 检查下车点
+            List<Waypoint> dropoffPoints = parseWaypoints(tripDetails.getDropoffPoints());
+            for (Waypoint point : dropoffPoints) {
+                if (point.getLatitude() != null && point.getLongitude() != null) {
+                    double distance = calculateDistance(targetLat, targetLng, point.getLatitude(),
+                            point.getLongitude());
+                    if (distance <= maxDistance) {
+                        logger.info("途经点符合距离: 下车点 {} 距离{}米", point.getName(), (int) distance);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 始终检查起点和终点坐标（即使途经点有坐标也要检查）
+        if (trip != null) {
+            // 检查起点
+            if (trip.getStartLatitude() != null && trip.getStartLongitude() != null) {
+                double distance = calculateDistance(targetLat, targetLng, trip.getStartLatitude(),
+                        trip.getStartLongitude());
+                if (distance <= maxDistance) {
+                    logger.info("起点符合距离: {} 距离{}米", trip.getStartLocation(), (int) distance);
+                    return true;
+                }
+            }
+
+            // 检查终点
+            if (trip.getEndLatitude() != null && trip.getEndLongitude() != null) {
+                double distance = calculateDistance(targetLat, targetLng, trip.getEndLatitude(),
+                        trip.getEndLongitude());
+                if (distance <= maxDistance) {
+                    logger.info("终点符合距离: {} 距离{}米", trip.getEndLocation(), (int) distance);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查行程的任意途经点是否包含指定地铁站
+     * 
+     * @param tripDetails 行程详情
+     * @param stationName 地铁站名称
+     * @return 是否有途经点包含该地铁站
+     */
+    private boolean hasWaypointWithSubwayStation(TripDetails tripDetails, String stationName) {
+        if (tripDetails == null || stationName == null) {
+            return false;
+        }
+
+        // 检查上车点
+        List<Waypoint> pickupPoints = parseWaypoints(tripDetails.getPickupPoints());
+        for (Waypoint point : pickupPoints) {
+            if (point.getName() != null && point.getName().contains(stationName)) {
+                logger.info("途经点包含地铁站: 上车点 {} 包含 {}", point.getName(), stationName);
+                return true;
+            }
+        }
+
+        // 检查下车点
+        List<Waypoint> dropoffPoints = parseWaypoints(tripDetails.getDropoffPoints());
+        for (Waypoint point : dropoffPoints) {
+            if (point.getName() != null && point.getName().contains(stationName)) {
+                logger.info("途经点包含地铁站: 下车点 {} 包含 {}", point.getName(), stationName);
+                return true;
+            }
+        }
+
+        return false;
     }
 }

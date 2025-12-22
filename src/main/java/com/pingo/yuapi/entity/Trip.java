@@ -14,11 +14,11 @@ public class Trip {
     private String startCity; // 起点城市
     private String startLocation; // 起点
     private Double startLongitude; // 起点经度
-    private Double startLatitude;  // 起点纬度
+    private Double startLatitude; // 起点纬度
     private String endCity; // 终点城市
     private String endLocation; // 终点
-    private Double endLongitude;   // 终点经度
-    private Double endLatitude;    // 终点纬度
+    private Double endLongitude; // 终点经度
+    private Double endLatitude; // 终点纬度
 
     // 核心时间信息
     private LocalDateTime departureTime;
@@ -40,9 +40,12 @@ public class Trip {
 
     // 关联用户信息（不存储在数据库，仅用于返回给前端）
     private transient String driverName; // 司机姓名
-    private transient String carInfo;    // 车辆信息（品牌+颜色）
+    private transient String carInfo; // 车辆信息（品牌+颜色）
+    private transient Object pickupPoints; // 上车点列表
+    private transient Object dropoffPoints; // 下车点列表
 
-    public Trip() {}
+    public Trip() {
+    }
 
     public String getId() {
         return id;
@@ -210,5 +213,21 @@ public class Trip {
 
     public void setCarInfo(String carInfo) {
         this.carInfo = carInfo;
+    }
+
+    public Object getPickupPoints() {
+        return pickupPoints;
+    }
+
+    public void setPickupPoints(Object pickupPoints) {
+        this.pickupPoints = pickupPoints;
+    }
+
+    public Object getDropoffPoints() {
+        return dropoffPoints;
+    }
+
+    public void setDropoffPoints(Object dropoffPoints) {
+        this.dropoffPoints = dropoffPoints;
     }
 }
