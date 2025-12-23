@@ -40,7 +40,10 @@ public class Trip {
 
     // 关联用户信息（不存储在数据库，仅用于返回给前端）
     private transient String driverName; // 司机姓名
+    private transient String driverAvatar; // 司机头像
     private transient String carInfo; // 车辆信息（品牌+颜色）
+    private transient String plateNumber; // 车牌号
+    private transient String notes; // 行程备注
     private transient Object pickupPoints; // 上车点列表
     private transient Object dropoffPoints; // 下车点列表
 
@@ -207,12 +210,36 @@ public class Trip {
         this.driverName = driverName;
     }
 
+    public String getDriverAvatar() {
+        return driverAvatar;
+    }
+
+    public void setDriverAvatar(String driverAvatar) {
+        this.driverAvatar = driverAvatar;
+    }
+
     public String getCarInfo() {
         return carInfo;
     }
 
     public void setCarInfo(String carInfo) {
         this.carInfo = carInfo;
+    }
+
+    public String getPlateNumber() {
+        return plateNumber;
+    }
+
+    public void setPlateNumber(String plateNumber) {
+        this.plateNumber = plateNumber;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
     public Object getPickupPoints() {

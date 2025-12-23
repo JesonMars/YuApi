@@ -5,11 +5,13 @@ import com.pingo.yuapi.entity.TripDetails;
 import com.pingo.yuapi.entity.User;
 import com.pingo.yuapi.entity.UserCommuteConfig;
 import com.pingo.yuapi.entity.UserLocation;
+import com.pingo.yuapi.entity.Vehicle;
 import com.pingo.yuapi.mapper.TripMapper;
 import com.pingo.yuapi.mapper.TripDetailsMapper;
 import com.pingo.yuapi.mapper.UserMapper;
 import com.pingo.yuapi.mapper.UserCommuteConfigMapper;
 import com.pingo.yuapi.mapper.UserLocationMapper;
+import com.pingo.yuapi.mapper.VehicleMapper;
 import com.pingo.yuapi.service.TripService;
 import com.pingo.yuapi.utils.DateUtils;
 import com.pingo.yuapi.utils.GsonUtils;
@@ -46,6 +48,9 @@ public class TripServiceImpl implements TripService {
 
     @Autowired
     private UserLocationMapper userLocationMapper;
+
+    @Autowired
+    private VehicleMapper vehicleMapper;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -118,32 +123,58 @@ public class TripServiceImpl implements TripService {
     public Trip getTripById(String tripId) {
         Trip trip = tripMapper.selectTripById(tripId);
         if (trip != null) {
-            // 填充途经点信息
+            // 填充途经点信息、备注和车辆信息
             TripDetails details = tripDetailsMapper.selectByTripId(tripId);
             if (details != null) {
                 trip.setPickupPoints(parseWaypoints(details.getPickupPoints()));
                 trip.setDropoffPoints(parseWaypoints(details.getDropoffPoints()));
-                // 也可以填充其他详情信息，如备注等
-                // trip.setNotes(details.getNotes());
+                trip.setNotes(details.getNotes());
+
+                // 🔧 优先从 TripDetails 读取司机和车辆信息（历史快照）
+                if (details.getDriverName() != null) {
+                    trip.setDriverName(details.getDriverName());
+                }
+                if (details.getDriverAvatar() != null) {
+                    trip.setDriverAvatar(details.getDriverAvatar());
+                }
+                if (details.getVehicleInfo() != null) {
+                    trip.setCarInfo(details.getVehicleInfo());
+                }
+                if (details.getPlateNumber() != null) {
+                    trip.setPlateNumber(details.getPlateNumber());
+                }
             }
 
-            // 填充司机信息
-            User user = userMapper.findById(trip.getUserId());
-            if (user != null) {
-                trip.setDriverName(user.getName());
-                // 组合车辆信息
-                if (user.getVehicleBrand() != null || user.getVehicleColor() != null) {
-                    StringBuilder carInfo = new StringBuilder();
-                    if (user.getVehicleBrand() != null) {
-                        carInfo.append(user.getVehicleBrand());
+            // 如果 TripDetails 中没有司机或车辆信息，从 User 表查询（兼容旧数据）
+            if (trip.getDriverName() == null || trip.getDriverAvatar() == null ||
+                trip.getCarInfo() == null || trip.getPlateNumber() == null) {
+                User user = userMapper.findById(trip.getUserId());
+                if (user != null) {
+                    if (trip.getDriverName() == null) {
+                        trip.setDriverName(user.getName());
                     }
-                    if (user.getVehicleColor() != null) {
-                        if (carInfo.length() > 0) {
-                            carInfo.append(" ");
+                    if (trip.getDriverAvatar() == null) {
+                        trip.setDriverAvatar(user.getAvatar());
+                    }
+
+                    // 组合车辆信息：颜色+品牌
+                    if (trip.getCarInfo() == null && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
+                        StringBuilder carInfo = new StringBuilder();
+                        if (user.getVehicleColor() != null) {
+                            carInfo.append(user.getVehicleColor());
                         }
-                        carInfo.append(user.getVehicleColor());
+                        if (user.getVehicleBrand() != null) {
+                            if (carInfo.length() > 0) {
+                                carInfo.append(" ");
+                            }
+                            carInfo.append(user.getVehicleBrand());
+                        }
+                        trip.setCarInfo(carInfo.toString());
                     }
-                    trip.setCarInfo(carInfo.toString());
+
+                    if (trip.getPlateNumber() == null) {
+                        trip.setPlateNumber(user.getPlateNumber());
+                    }
                 }
             }
         }
@@ -305,6 +336,65 @@ public class TripServiceImpl implements TripService {
             recurringType = config.getDefaultRecurringType();
         }
         config.setDefaultRecurringType(recurringType);
+
+        // 🔧 查询用户信息并填充到 trip_details（车辆信息快照）
+        User user = userMapper.findById(userId);
+        if (user != null) {
+            // 填充司机基本信息
+            details.setDriverName(user.getName());
+            details.setDriverAvatar(user.getAvatar());
+            details.setDriverPhone(user.getPhone());
+        }
+
+        // 🔧 查询车辆信息并填充到 trip_details（车辆信息快照）
+        // 优先从 vehicles 表查询，如果没有则从 users 表查询（兼容旧数据）
+        Vehicle vehicle = vehicleMapper.findDefaultByUserId(userId);
+        if (vehicle != null) {
+            // 保存车辆ID引用
+            details.setVehicleId(vehicle.getId());
+
+            // 填充车牌号
+            details.setPlateNumber(vehicle.getPlateNumber());
+
+            // 组合车辆信息：颜色+品牌
+            if (vehicle.getBrand() != null || vehicle.getColor() != null) {
+                StringBuilder vehicleInfo = new StringBuilder();
+                if (vehicle.getColor() != null) {
+                    vehicleInfo.append(vehicle.getColor());
+                }
+                if (vehicle.getBrand() != null) {
+                    if (vehicleInfo.length() > 0) {
+                        vehicleInfo.append(" ");
+                    }
+                    vehicleInfo.append(vehicle.getBrand());
+                }
+                details.setVehicleInfo(vehicleInfo.toString());
+            }
+
+            logger.info("填充车辆信息（从vehicles表）: userId={}, vehicleId={}, plateNumber={}, vehicleInfo={}",
+                    userId, vehicle.getId(), vehicle.getPlateNumber(), details.getVehicleInfo());
+        } else if (user != null) {
+            // 兼容旧数据：如果 vehicles 表中没有数据，从 users 表查询
+            details.setPlateNumber(user.getPlateNumber());
+
+            // 组合车辆信息：品牌+颜色
+            if (user.getVehicleBrand() != null || user.getVehicleColor() != null) {
+                StringBuilder vehicleInfo = new StringBuilder();
+                if (user.getVehicleColor() != null) {
+                    vehicleInfo.append(user.getVehicleColor());
+                }
+                if (user.getVehicleBrand() != null) {
+                    if (vehicleInfo.length() > 0) {
+                        vehicleInfo.append(" ");
+                    }
+                    vehicleInfo.append(user.getVehicleBrand());
+                }
+                details.setVehicleInfo(vehicleInfo.toString());
+            }
+
+            logger.info("填充车辆信息（从users表）: userId={}, plateNumber={}, vehicleInfo={}",
+                    userId, user.getPlateNumber(), details.getVehicleInfo());
+        }
 
         // 5. 保存trip_details
         tripDetailsMapper.insertTripDetails(details);
@@ -711,33 +801,62 @@ public class TripServiceImpl implements TripService {
                 })
                 .collect(ArrayList::new, (list, trip) -> list.add(trip), ArrayList::addAll);
 
-        // 填充用户信息（司机姓名和车辆信息）
-        // 填充用户信息（司机姓名和车辆信息）和途经点信息
+        // 填充用户信息（司机姓名、车辆信息、车牌号）和途经点信息、备注
         filteredTrips.forEach(trip -> {
             try {
-                // 填充途经点信息
+                // 填充途经点信息和备注
                 TripDetails details = tripDetailsMap.get(trip.getId());
                 if (details != null) {
                     trip.setPickupPoints(parseWaypoints(details.getPickupPoints()));
                     trip.setDropoffPoints(parseWaypoints(details.getDropoffPoints()));
+                    // 🔧 填充备注
+                    trip.setNotes(details.getNotes());
+
+                    // 🔧 优先从 TripDetails 读取司机和车辆信息（历史快照）
+                    if (details.getDriverName() != null) {
+                        trip.setDriverName(details.getDriverName());
+                    }
+                    if (details.getDriverAvatar() != null) {
+                        trip.setDriverAvatar(details.getDriverAvatar());
+                    }
+                    if (details.getVehicleInfo() != null) {
+                        trip.setCarInfo(details.getVehicleInfo());
+                    }
+                    if (details.getPlateNumber() != null) {
+                        trip.setPlateNumber(details.getPlateNumber());
+                    }
                 }
 
-                User user = userMapper.findById(trip.getUserId());
-                if (user != null) {
-                    trip.setDriverName(user.getName());
-                    // 组合车辆信息：品牌+颜色
-                    if (user.getVehicleBrand() != null || user.getVehicleColor() != null) {
-                        StringBuilder carInfo = new StringBuilder();
-                        if (user.getVehicleBrand() != null) {
-                            carInfo.append(user.getVehicleBrand());
+                // 如果 TripDetails 中没有司机或车辆信息，从 User 表查询（兼容旧数据）
+                if (trip.getDriverName() == null || trip.getDriverAvatar() == null ||
+                    trip.getCarInfo() == null || trip.getPlateNumber() == null) {
+                    User user = userMapper.findById(trip.getUserId());
+                    if (user != null) {
+                        if (trip.getDriverName() == null) {
+                            trip.setDriverName(user.getName());
                         }
-                        if (user.getVehicleColor() != null) {
-                            if (carInfo.length() > 0) {
-                                carInfo.append(" ");
+                        if (trip.getDriverAvatar() == null) {
+                            trip.setDriverAvatar(user.getAvatar());
+                        }
+
+                        // 组合车辆信息：颜色+品牌
+                        if (trip.getCarInfo() == null && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
+                            StringBuilder carInfo = new StringBuilder();
+                            if (user.getVehicleColor() != null) {
+                                carInfo.append(user.getVehicleColor());
                             }
-                            carInfo.append(user.getVehicleColor());
+                            if (user.getVehicleBrand() != null) {
+                                if (carInfo.length() > 0) {
+                                    carInfo.append(" ");
+                                }
+                                carInfo.append(user.getVehicleBrand());
+                            }
+                            trip.setCarInfo(carInfo.toString());
                         }
-                        trip.setCarInfo(carInfo.toString());
+
+                        if (trip.getPlateNumber() == null) {
+                            trip.setPlateNumber(user.getPlateNumber());
+                        }
                     }
                 }
             } catch (Exception e) {

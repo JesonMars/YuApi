@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class TripDetails {
     private String id;
     private String tripId; // 外键关联trips表
+    private String vehicleId; // 外键关联vehicles表
 
     // 途经点
     private String pickupPoints; // 上车点列表（JSON数组）
@@ -52,6 +53,14 @@ public class TripDetails {
 
     public void setTripId(String tripId) {
         this.tripId = tripId;
+    }
+
+    public String getVehicleId() {
+        return vehicleId;
+    }
+
+    public void setVehicleId(String vehicleId) {
+        this.vehicleId = vehicleId;
     }
 
     public String getPickupPoints() {

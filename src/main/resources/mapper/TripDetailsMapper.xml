@@ -5,6 +5,7 @@
     <resultMap id="TripDetailsResultMap" type="com.pingo.yuapi.entity.TripDetails">
         <id column="id" property="id" jdbcType="VARCHAR"/>
         <result column="trip_id" property="tripId" jdbcType="VARCHAR"/>
+        <result column="vehicle_id" property="vehicleId" jdbcType="VARCHAR"/>
 
         <!-- 详细地址 -->
 
@@ -38,14 +39,14 @@
     <!-- 插入行程详情 -->
     <insert id="insertTripDetails" parameterType="com.pingo.yuapi.entity.TripDetails">
         INSERT INTO trip_details (
-            id, trip_id,
+            id, trip_id, vehicle_id,
             pickup_points, dropoff_points,
             driver_name, driver_avatar, driver_phone, vehicle_info, plate_number,
             notes,
             price_per_seat, seat_count, total_income, base_price, extra_fee,
             passenger_count
         ) VALUES (
-            #{id}, #{tripId},
+            #{id}, #{tripId}, #{vehicleId},
             #{pickupPoints}, #{dropoffPoints},
             #{driverName}, #{driverAvatar}, #{driverPhone}, #{vehicleInfo}, #{plateNumber},
             #{notes},
@@ -69,7 +70,7 @@
     <!-- 更新行程详情 -->
     <update id="updateTripDetails" parameterType="com.pingo.yuapi.entity.TripDetails">
         UPDATE trip_details SET
-
+            vehicle_id = #{vehicleId},
             pickup_points = #{pickupPoints},
             dropoff_points = #{dropoffPoints},
             driver_name = #{driverName},

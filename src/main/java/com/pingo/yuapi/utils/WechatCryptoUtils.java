@@ -1,4 +1,4 @@
-package com.pingo.yuapi.util;
+package com.pingo.yuapi.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.binary.Base64;
