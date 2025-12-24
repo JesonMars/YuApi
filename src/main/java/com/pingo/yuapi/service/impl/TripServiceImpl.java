@@ -147,7 +147,7 @@ public class TripServiceImpl implements TripService {
 
             // 如果 TripDetails 中没有司机或车辆信息，从 User 表查询（兼容旧数据）
             if (trip.getDriverName() == null || trip.getDriverAvatar() == null ||
-                trip.getCarInfo() == null || trip.getPlateNumber() == null) {
+                    trip.getCarInfo() == null || trip.getPlateNumber() == null) {
                 User user = userMapper.findById(trip.getUserId());
                 if (user != null) {
                     if (trip.getDriverName() == null) {
@@ -158,7 +158,8 @@ public class TripServiceImpl implements TripService {
                     }
 
                     // 组合车辆信息：颜色+品牌
-                    if (trip.getCarInfo() == null && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
+                    if (trip.getCarInfo() == null
+                            && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
                         StringBuilder carInfo = new StringBuilder();
                         if (user.getVehicleColor() != null) {
                             carInfo.append(user.getVehicleColor());
@@ -829,7 +830,7 @@ public class TripServiceImpl implements TripService {
 
                 // 如果 TripDetails 中没有司机或车辆信息，从 User 表查询（兼容旧数据）
                 if (trip.getDriverName() == null || trip.getDriverAvatar() == null ||
-                    trip.getCarInfo() == null || trip.getPlateNumber() == null) {
+                        trip.getCarInfo() == null || trip.getPlateNumber() == null) {
                     User user = userMapper.findById(trip.getUserId());
                     if (user != null) {
                         if (trip.getDriverName() == null) {
@@ -840,7 +841,8 @@ public class TripServiceImpl implements TripService {
                         }
 
                         // 组合车辆信息：颜色+品牌
-                        if (trip.getCarInfo() == null && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
+                        if (trip.getCarInfo() == null
+                                && (user.getVehicleBrand() != null || user.getVehicleColor() != null)) {
                             StringBuilder carInfo = new StringBuilder();
                             if (user.getVehicleColor() != null) {
                                 carInfo.append(user.getVehicleColor());
