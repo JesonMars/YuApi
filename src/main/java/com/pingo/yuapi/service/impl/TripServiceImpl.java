@@ -19,6 +19,7 @@ import com.pingo.yuapi.utils.IdGeneratorUtils;
 import com.pingo.yuapi.utils.MoneyUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -285,35 +286,35 @@ public class TripServiceImpl implements TripService {
         details.setTripId(tripId);
 
         // 途经点（从前端获取，或从配置加载）
-        String pickupPoints = (String) tripData.get("pickupPoint");
-        String dropoffPoints = (String) tripData.get("dropoffPoint");
+        String pickupPoints = tripData.get("pickupPoint") + "";
+        String dropoffPoints = tripData.get("dropoffPoint") + "";
 
         // 获取JSON格式的途经点（包含经纬度）
-        String pickupPointsJson = (String) tripData.get("pickupPointsJson");
-        String dropoffPointsJson = (String) tripData.get("dropoffPointsJson");
+        String pickupPointsJson = tripData.get("pickupPointsJson") + "";
+        String dropoffPointsJson = tripData.get("dropoffPointsJson") + "";
 
-        if (pickupPoints == null && config.getPickupPoints() != null) {
+        if (!StringUtils.hasText(pickupPoints) && config.getPickupPoints() != null) {
             pickupPoints = config.getPickupPoints();
         }
-        if (dropoffPoints == null && config.getDropoffPoints() != null) {
+        if (!StringUtils.hasText(dropoffPoints) && config.getDropoffPoints() != null) {
             dropoffPoints = config.getDropoffPoints();
         }
 
         // 🔧 优先保存JSON格式的途经点数据（包含经纬度）到trip_details
         // 如果前端传了JSON数据，优先使用JSON；否则使用简单字符串（兼容旧数据）
-        if (pickupPointsJson != null && !pickupPointsJson.isEmpty()) {
+        if (StringUtils.hasText(pickupPointsJson)) {
             details.setPickupPoints(pickupPointsJson);
-        } else if (pickupPoints != null) {
+        } else if (StringUtils.hasText(pickupPoints)) {
             details.setPickupPoints(pickupPoints);
-        } else if (config.getPickupPoints() != null) {
+        } else if (StringUtils.hasText(config.getPickupPoints())) {
             details.setPickupPoints(config.getPickupPoints());
         }
 
-        if (dropoffPointsJson != null && !dropoffPointsJson.isEmpty()) {
+        if (StringUtils.hasText(dropoffPointsJson)) {
             details.setDropoffPoints(dropoffPointsJson);
-        } else if (dropoffPoints != null) {
+        } else if (StringUtils.hasText(dropoffPoints)) {
             details.setDropoffPoints(dropoffPoints);
-        } else if (config.getDropoffPoints() != null) {
+        } else if (StringUtils.hasText(config.getDropoffPoints())) {
             details.setDropoffPoints(config.getDropoffPoints());
         }
 
