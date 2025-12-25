@@ -1081,28 +1081,30 @@ public class TripServiceImpl implements TripService {
             }
         }
 
-        // 始终检查起点和终点坐标（即使途经点有坐标也要检查）
-        if (trip != null) {
-            // 检查起点
-            if (trip.getStartLatitude() != null && trip.getStartLongitude() != null) {
-                double distance = calculateDistance(targetLat, targetLng, trip.getStartLatitude(),
-                        trip.getStartLongitude());
-                if (distance <= maxDistance) {
-                    logger.info("起点符合距离: {} 距离{}米", trip.getStartLocation(), (int) distance);
-                    return true;
-                }
-            }
+        // // 始终检查起点和终点坐标（即使途经点有坐标也要检查）
+        // if (trip != null) {
+        // // 检查起点
+        // if (trip.getStartLatitude() != null && trip.getStartLongitude() != null) {
+        // double distance = calculateDistance(targetLat, targetLng,
+        // trip.getStartLatitude(),
+        // trip.getStartLongitude());
+        // if (distance <= maxDistance) {
+        // logger.info("起点符合距离: {} 距离{}米", trip.getStartLocation(), (int) distance);
+        // return true;
+        // }
+        // }
 
-            // 检查终点
-            if (trip.getEndLatitude() != null && trip.getEndLongitude() != null) {
-                double distance = calculateDistance(targetLat, targetLng, trip.getEndLatitude(),
-                        trip.getEndLongitude());
-                if (distance <= maxDistance) {
-                    logger.info("终点符合距离: {} 距离{}米", trip.getEndLocation(), (int) distance);
-                    return true;
-                }
-            }
-        }
+        // // 检查终点
+        // if (trip.getEndLatitude() != null && trip.getEndLongitude() != null) {
+        // double distance = calculateDistance(targetLat, targetLng,
+        // trip.getEndLatitude(),
+        // trip.getEndLongitude());
+        // if (distance <= maxDistance) {
+        // logger.info("终点符合距离: {} 距离{}米", trip.getEndLocation(), (int) distance);
+        // return true;
+        // }
+        // }
+        // }
 
         return false;
     }
