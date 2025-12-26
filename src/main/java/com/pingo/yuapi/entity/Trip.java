@@ -46,6 +46,7 @@ public class Trip {
     private transient String notes; // 行程备注
     private transient Object pickupPoints; // 上车点列表
     private transient Object dropoffPoints; // 下车点列表
+    private transient Integer completedTrips; // 拼成次数（该司机已完成的订单数）
 
     public Trip() {
     }
@@ -256,5 +257,13 @@ public class Trip {
 
     public void setDropoffPoints(Object dropoffPoints) {
         this.dropoffPoints = dropoffPoints;
+    }
+
+    public Integer getCompletedTrips() {
+        return completedTrips;
+    }
+
+    public void setCompletedTrips(Integer completedTrips) {
+        this.completedTrips = completedTrips;
     }
 }

@@ -179,6 +179,17 @@ public class TripServiceImpl implements TripService {
                     }
                 }
             }
+
+            // 🔧 统计该司机的拼成次数（已有人预定的行程数量）
+            try {
+                String sql = "SELECT COUNT(*) FROM trips WHERE user_id = ? AND booked_seats > 0";
+                Integer completedTrips = jdbcTemplate.queryForObject(sql, Integer.class, trip.getUserId());
+                trip.setCompletedTrips(completedTrips != null ? completedTrips : 0);
+                logger.info("司机 {} 的拼成次数: {}", trip.getUserId(), completedTrips);
+            } catch (Exception e) {
+                logger.warn("统计拼成次数失败: userId={}, error={}", trip.getUserId(), e.getMessage());
+                trip.setCompletedTrips(0);
+            }
         }
         return trip;
     }
@@ -861,6 +872,16 @@ public class TripServiceImpl implements TripService {
                             trip.setPlateNumber(user.getPlateNumber());
                         }
                     }
+                }
+
+                // 🔧 统计该司机的拼成次数（已有人预定的行程数量）
+                try {
+                    String sql = "SELECT COUNT(*) FROM trips WHERE user_id = ? AND booked_seats > 0";
+                    Integer completedTrips = jdbcTemplate.queryForObject(sql, Integer.class, trip.getUserId());
+                    trip.setCompletedTrips(completedTrips != null ? completedTrips : 0);
+                } catch (Exception statEx) {
+                    logger.warn("统计拼成次数失败: userId={}, error={}", trip.getUserId(), statEx.getMessage());
+                    trip.setCompletedTrips(0);
                 }
             } catch (Exception e) {
                 logger.warn("填充行程用户信息失败: tripId={}, userId={}, error={}",
