@@ -1,8 +1,11 @@
 package com.pingo.yuapi.controller;
 
 import com.pingo.yuapi.common.Result;
+import com.pingo.yuapi.dto.CreateOrderRequest;
+import com.pingo.yuapi.dto.OrderPaymentResponse;
 import com.pingo.yuapi.entity.Order;
 import com.pingo.yuapi.service.OrderService;
+import com.pingo.yuapi.utils.WechatPayUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,6 +48,37 @@ public class OrderController {
             return Result.success(orderId);
         } catch (Exception e) {
             return Result.error("预订行程失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 创建订单并生成支付参数
+     */
+    @PostMapping("/create")
+    public Result<OrderPaymentResponse> createOrder(@RequestBody CreateOrderRequest request) {
+        try {
+            String userId = getCurrentUserId();
+            OrderPaymentResponse response = orderService.createOrderWithPayment(request, userId);
+            if (response != null) {
+                return Result.success(response);
+            } else {
+                return Result.error("创建订单失败");
+            }
+        } catch (Exception e) {
+            return Result.error("创建订单失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 微信支付回调接口
+     */
+    @PostMapping("/payment/wechat/notify")
+    public String wechatPayNotify(@RequestBody Map<String, String> notifyData) {
+        try {
+            boolean success = orderService.handleWechatPayNotify(notifyData);
+            return WechatPayUtils.buildNotifyResponse(success, success ? "OK" : "处理失败");
+        } catch (Exception e) {
+            return WechatPayUtils.buildNotifyResponse(false, "异常: " + e.getMessage());
         }
     }
 

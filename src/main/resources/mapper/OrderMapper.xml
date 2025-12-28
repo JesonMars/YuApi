@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pingo.yuapi.mapper.OrderMapper">
+
+    <resultMap id="OrderResultMap" type="com.pingo.yuapi.entity.Order">
+        <id column="id" property="id" jdbcType="VARCHAR"/>
+        <result column="trip_id" property="tripId" jdbcType="VARCHAR"/>
+        <result column="user_id" property="passengerId" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="price" property="price" jdbcType="DECIMAL"/>
+        <result column="payment_method" property="paymentMethod" jdbcType="VARCHAR"/>
+        <result column="payment_status" property="paymentStatus" jdbcType="VARCHAR"/>
+        <result column="transaction_id" property="transactionId" jdbcType="VARCHAR"/>
+        <result column="out_trade_no" property="outTradeNo" jdbcType="VARCHAR"/>
+        <result column="pay_time" property="payTime" jdbcType="TIMESTAMP"/>
+        <result column="pickup_point" property="pickupPoint" jdbcType="VARCHAR"/>
+        <result column="dropoff_point" property="dropoffPoint" jdbcType="VARCHAR"/>
+        <result column="passenger_count" property="passengerCount" jdbcType="INTEGER"/>
+        <result column="rating" property="rating" jdbcType="INTEGER"/>
+        <result column="feedback" property="feedback" jdbcType="VARCHAR"/>
+        <result column="order_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <!-- 从trips表获取的字段 -->
+        <result column="driver_id" property="driverId" jdbcType="VARCHAR"/>
+        <result column="driver_name" property="driverName" jdbcType="VARCHAR"/>
+        <result column="driver_avatar" property="driverAvatar" jdbcType="VARCHAR"/>
+        <result column="route" property="route" jdbcType="VARCHAR"/>
+        <result column="departure_time" property="departureTime" jdbcType="TIMESTAMP"/>
+        <result column="vehicle_info" property="vehicleInfo" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!-- 根据用户ID查询订单列表（最近一周），JOIN trips表获取行程信息 -->
+    <select id="selectOrdersByUserId" resultMap="OrderResultMap">
+        SELECT
+            o.id,
+            o.trip_id,
+            o.user_id,
+            o.status,
+            o.price,
+            o.payment_method,
+            o.payment_status,
+            o.transaction_id,
+            o.out_trade_no,
+            o.pay_time,
+            o.pickup_point,
+            o.dropoff_point,
+            o.passenger_count,
+            o.rating,
+            o.feedback,
+            o.order_time,
+            o.create_time,
+            o.update_time,
+            t.user_id as driver_id,
+            t.start_location,
+            t.end_location,
+            t.departure_time,
+            CONCAT(t.start_location, ' → ', t.end_location) as route,
+            u.name as driver_name,
+            u.avatar as driver_avatar,
+            CONCAT(u.vehicle_color, ' ', u.vehicle_brand, ' ', u.plate_number) as vehicle_info
+        FROM orders o
+        LEFT JOIN trips t ON o.trip_id = t.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE o.user_id = #{userId}
+        AND o.create_time >= #{startTime}
+        ORDER BY o.create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 根据订单ID查询订单 -->
+    <select id="selectOrderById" resultMap="OrderResultMap">
+        SELECT
+            o.id,
+            o.trip_id,
+            o.user_id,
+            o.status,
+            o.price,
+            o.payment_method,
+            o.payment_status,
+            o.transaction_id,
+            o.out_trade_no,
+            o.pay_time,
+            o.pickup_point,
+            o.dropoff_point,
+            o.passenger_count,
+            o.rating,
+            o.feedback,
+            o.order_time,
+            o.create_time,
+            o.update_time,
+            t.user_id as driver_id,
+            t.start_location,
+            t.end_location,
+            t.departure_time,
+            CONCAT(t.start_location, ' → ', t.end_location) as route,
+            u.name as driver_name,
+            u.avatar as driver_avatar,
+            CONCAT(u.vehicle_color, ' ', u.vehicle_brand, ' ', u.plate_number) as vehicle_info
+        FROM orders o
+        LEFT JOIN trips t ON o.trip_id = t.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE o.id = #{id}
+    </select>
+
+    <!-- 根据商户订单号查询订单 -->
+    <select id="selectOrderByOutTradeNo" resultMap="OrderResultMap">
+        SELECT
+            o.id,
+            o.trip_id,
+            o.user_id,
+            o.status,
+            o.price,
+            o.payment_method,
+            o.payment_status,
+            o.transaction_id,
+            o.out_trade_no,
+            o.pay_time,
+            o.pickup_point,
+            o.dropoff_point,
+            o.passenger_count,
+            o.rating,
+            o.feedback,
+            o.order_time,
+            o.create_time,
+            o.update_time,
+            t.user_id as driver_id,
+            t.start_location,
+            t.end_location,
+            t.departure_time,
+            CONCAT(t.start_location, ' → ', t.end_location) as route,
+            u.name as driver_name,
+            u.avatar as driver_avatar,
+            CONCAT(u.vehicle_color, ' ', u.vehicle_brand, ' ', u.plate_number) as vehicle_info
+        FROM orders o
+        LEFT JOIN trips t ON o.trip_id = t.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE o.out_trade_no = #{outTradeNo}
+    </select>
+
+    <!-- 插入订单 -->
+    <insert id="insertOrder" parameterType="com.pingo.yuapi.entity.Order">
+        INSERT INTO orders (
+            id, trip_id, user_id, status, price,
+            payment_method, payment_status, transaction_id, out_trade_no, pay_time,
+            pickup_point, dropoff_point, passenger_count, rating, feedback
+        ) VALUES (
+            #{id}, #{tripId}, #{passengerId}, #{status}, #{price},
+            #{paymentMethod}, #{paymentStatus}, #{transactionId}, #{outTradeNo}, #{payTime},
+            #{pickupPoint}, #{dropoffPoint}, #{passengerCount}, #{rating}, #{feedback}
+        )
+    </insert>
+
+    <!-- 更新订单 -->
+    <update id="updateOrder" parameterType="com.pingo.yuapi.entity.Order">
+        UPDATE orders
+        <set>
+            <if test="tripId != null">trip_id = #{tripId},</if>
+            <if test="passengerId != null">user_id = #{passengerId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
+            <if test="paymentStatus != null">payment_status = #{paymentStatus},</if>
+            <if test="transactionId != null">transaction_id = #{transactionId},</if>
+            <if test="outTradeNo != null">out_trade_no = #{outTradeNo},</if>
+            <if test="payTime != null">pay_time = #{payTime},</if>
+            <if test="pickupPoint != null">pickup_point = #{pickupPoint},</if>
+            <if test="dropoffPoint != null">dropoff_point = #{dropoffPoint},</if>
+            <if test="passengerCount != null">passenger_count = #{passengerCount},</if>
+            <if test="rating != null">rating = #{rating},</if>
+            <if test="feedback != null">feedback = #{feedback},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新订单状态 -->
+    <update id="updateOrderStatus">
+        UPDATE orders
+        SET status = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新支付状态 -->
+    <update id="updatePaymentStatus">
+        UPDATE orders
+        SET payment_status = #{paymentStatus},
+            transaction_id = #{transactionId},
+            pay_time = #{payTime},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新订单评价 -->
+    <update id="updateOrderRating">
+        UPDATE orders
+        SET rating = #{rating},
+            feedback = #{feedback},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 查询订单总数 -->
+    <select id="countOrdersByUserId" resultType="int">
+        SELECT COUNT(*) FROM orders
+        WHERE user_id = #{userId}
+        AND create_time >= #{startTime}
+    </select>
+
+</mapper>

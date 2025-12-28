@@ -101,16 +101,28 @@ public class ConfigService {
                 case "notification_trip_change":
                     notifications.put("tripChange", value);
                     break;
+                case "service_fee":
+                    try {
+                        configDTO.setServiceFee(Double.parseDouble(value));
+                    } catch (NumberFormatException e) {
+                        configDTO.setServiceFee(0.6); // 默认值
+                    }
+                    break;
                 default:
                     break;
             }
         }
-        
+
         configDTO.setHomeButtons(homeButtons);
         configDTO.setTabBarConfig(tabBarConfig);
         configDTO.setPageTexts(pageTexts);
         configDTO.setNotifications(notifications);
-        
+
+        // 如果没有配置服务费，设置默认值
+        if (configDTO.getServiceFee() == null) {
+            configDTO.setServiceFee(0.6);
+        }
+
         return configDTO;
     }
 

@@ -10,6 +10,7 @@ public class ConfigDTO {
     private Object tabBarConfig;
     private Object pageTexts;
     private Object notifications;
+    private Double serviceFee;
 
     public ConfigDTO() {}
 
@@ -83,5 +84,13 @@ public class ConfigDTO {
 
     public void setNotifications(Object notifications) {
         this.notifications = notifications;
+    }
+
+    public Double getServiceFee() {
+        return serviceFee;
+    }
+
+    public void setServiceFee(Double serviceFee) {
+        this.serviceFee = serviceFee;
     }
 }

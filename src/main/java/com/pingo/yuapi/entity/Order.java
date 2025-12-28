@@ -20,6 +20,16 @@ public class Order {
     private String feedback;
     private LocalDateTime updateTime;
 
+    // 支付相关字段
+    private String paymentMethod; // wechat, alipay, cash
+    private String paymentStatus; // unpaid, paid, refunded
+    private String transactionId; // 微信支付交易号
+    private String outTradeNo; // 商户订单号
+    private LocalDateTime payTime; // 支付时间
+    private String pickupPoint; // 上车点
+    private String dropoffPoint; // 下车点
+    private Integer passengerCount; // 乘车人数
+
     public Order() {}
 
     public String getId() {
@@ -140,5 +150,69 @@ public class Order {
 
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public String getOutTradeNo() {
+        return outTradeNo;
+    }
+
+    public void setOutTradeNo(String outTradeNo) {
+        this.outTradeNo = outTradeNo;
+    }
+
+    public LocalDateTime getPayTime() {
+        return payTime;
+    }
+
+    public void setPayTime(LocalDateTime payTime) {
+        this.payTime = payTime;
+    }
+
+    public String getPickupPoint() {
+        return pickupPoint;
+    }
+
+    public void setPickupPoint(String pickupPoint) {
+        this.pickupPoint = pickupPoint;
+    }
+
+    public String getDropoffPoint() {
+        return dropoffPoint;
+    }
+
+    public void setDropoffPoint(String dropoffPoint) {
+        this.dropoffPoint = dropoffPoint;
+    }
+
+    public Integer getPassengerCount() {
+        return passengerCount;
+    }
+
+    public void setPassengerCount(Integer passengerCount) {
+        this.passengerCount = passengerCount;
     }
 }
