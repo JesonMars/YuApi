@@ -5,6 +5,10 @@ import com.pingo.yuapi.entity.IncomeRecord;
 import com.pingo.yuapi.entity.UserAccount;
 import com.pingo.yuapi.entity.WithdrawRecord;
 import com.pingo.yuapi.service.AccountService;
+import com.pingo.yuapi.service.UserService;
+
+import jakarta.annotation.Resource;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +23,9 @@ public class AccountController {
 
     @Autowired
     private AccountService accountService;
+
+    @Resource
+    private UserService userService;
 
     /**
      * 获取用户账户信息
@@ -39,7 +46,7 @@ public class AccountController {
      */
     @GetMapping("/income")
     public Result<List<IncomeRecord>> getIncomeRecords(@RequestParam(defaultValue = "1") int page,
-                                                         @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(defaultValue = "10") int pageSize) {
         try {
             String userId = getCurrentUserId();
             List<IncomeRecord> records = accountService.getIncomeRecords(userId, page, pageSize);
@@ -78,7 +85,7 @@ public class AccountController {
      */
     @GetMapping("/withdraw/records")
     public Result<List<WithdrawRecord>> getWithdrawRecords(@RequestParam(defaultValue = "1") int page,
-                                                            @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(defaultValue = "10") int pageSize) {
         try {
             String userId = getCurrentUserId();
             List<WithdrawRecord> records = accountService.getWithdrawRecords(userId, page, pageSize);
@@ -124,6 +131,6 @@ public class AccountController {
     private String getCurrentUserId() {
         // 这里应该从认证信息中获取真实的用户ID
         // 为了演示，返回一个固定的用户ID
-        return "user_001";
+        return userService.getCurrentUserId();
     }
 }

@@ -2,6 +2,10 @@ package com.pingo.yuapi.controller;
 
 import com.pingo.yuapi.common.Result;
 import com.pingo.yuapi.service.MessageService;
+import com.pingo.yuapi.service.UserService;
+
+import jakarta.annotation.Resource;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +20,9 @@ public class MessageController {
 
     @Autowired
     private MessageService messageService;
+
+    @Resource
+    private UserService userService;
 
     /**
      * 获取消息会话列表
@@ -70,7 +77,7 @@ public class MessageController {
         try {
             String userId = getCurrentUserId();
             messageData.put("senderId", userId);
-            
+
             Map<String, Object> message = messageService.sendMessage(messageData);
             return Result.success(message);
         } catch (Exception e) {
@@ -86,7 +93,7 @@ public class MessageController {
         try {
             String userId = getCurrentUserId();
             String chatRoomId = request.get("chatRoomId");
-            
+
             boolean success = messageService.markMessagesAsRead(chatRoomId, userId);
             return Result.success(success);
         } catch (Exception e) {
@@ -116,7 +123,7 @@ public class MessageController {
         try {
             String userId = getCurrentUserId();
             locationData.put("senderId", userId);
-            
+
             Map<String, Object> message = messageService.sendLocationMessage(locationData);
             return Result.success(message);
         } catch (Exception e) {
@@ -144,6 +151,6 @@ public class MessageController {
     private String getCurrentUserId() {
         // 从JWT token或session中获取用户ID
         // 这里返回模拟的用户ID
-        return "user_001";
+        return userService.getCurrentUserId();
     }
 }
